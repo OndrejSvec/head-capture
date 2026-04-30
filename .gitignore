@@ -1,0 +1,8 @@
+node_modules/
+captures/
+chunks/
+r2.config.json
+*.mp4
+*.mov
+*.avi
+.env

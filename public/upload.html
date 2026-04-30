@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>Nahrát video — Head Capture</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0d0f;--s1:#1a1a1f;--s2:#242429;
+      --acc:#6c63ff;--grn:#3ddc84;--pnk:#ff6584;--org:#ffb347;
+      --txt:#f0f0f5;--mut:#8888a0;--r:16px;
+    }
+    body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;padding:20px 16px 48px;display:flex;flex-direction:column;gap:14px;max-width:480px;margin:0 auto}
+    h1{font-size:1.5rem;font-weight:800}
+    .sub{color:var(--mut);font-size:.88rem}
+
+    /* ── Step indicator ── */
+    .steps{display:flex;gap:0;align-items:center}
+    .step-pip{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:default}
+    .pip-circle{width:32px;height:32px;border-radius:50%;border:2px solid #333;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:var(--mut);transition:all .3s}
+    .pip-circle.active{background:var(--acc);border-color:var(--acc);color:#fff}
+    .pip-circle.done{background:var(--grn);border-color:var(--grn);color:#000}
+    .pip-label{font-size:.68rem;color:var(--mut);text-align:center;line-height:1.2}
+    .pip-label.active{color:var(--txt)}
+    .step-line{flex:0 0 20px;height:2px;background:#333;margin-bottom:18px}
+    .step-line.done{background:var(--grn)}
+
+    /* ── Quality card ── */
+    .quality-card{background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(108,99,255,.35);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+    .quality-title{font-size:.9rem;font-weight:700;color:var(--acc);display:flex;align-items:center;gap:6px}
+    .quality-row{display:flex;gap:10px;align-items:flex-start}
+    .quality-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px}
+    .quality-text{font-size:.82rem;color:var(--mut);line-height:1.45}
+    .quality-text strong{color:var(--txt)}
+    .quality-impact{background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);border-radius:8px;padding:8px 12px;font-size:.8rem;color:var(--org);line-height:1.4}
+
+    /* ── Video step card ── */
+    .video-card{background:var(--s1);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px}
+    .video-card-header{display:flex;align-items:center;gap:10px}
+    .video-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0}
+    .video-num.v1{background:var(--grn);color:#000}
+    .video-num.v2{background:var(--acc);color:#fff}
+    .video-num.v3{background:var(--pnk);color:#fff}
+    .video-card-title{font-weight:700;font-size:1rem}
+    .video-card-sub{font-size:.82rem;color:var(--mut);line-height:1.4}
+
+    /* ── SVG diagrams ── */
+    .diag-wrap{background:var(--s2);border-radius:12px;padding:10px;overflow:hidden}
+    svg.diag{width:100%;height:auto;display:block}
+
+    /* ── Checklist ── */
+    .checklist{display:flex;flex-direction:column;gap:6px}
+    .chk{display:flex;gap:8px;font-size:.82rem;color:var(--mut);line-height:1.35}
+    .chk strong{color:var(--txt)}
+
+    /* ── Upload zone ── */
+    .zone{background:var(--s2);border:2px dashed #444;border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .2s}
+    .zone.ready{border-color:var(--acc);border-style:solid}
+    .zone.done-z{border-color:var(--grn);border-style:solid}
+    .zone .zico{font-size:2rem}
+    .zone .zlbl{font-weight:600;font-size:.9rem}
+    .zone .zhint{font-size:.75rem;color:var(--mut)}
+
+    /* ── Progress ── */
+    .prog{display:flex;flex-direction:column;gap:6px}
+    .prog-hdr{display:flex;justify-content:space-between;font-size:.85rem}
+    .prog-pct{font-weight:700}
+    .prog-track{height:7px;background:#333;border-radius:4px;overflow:hidden}
+    .prog-fill{height:100%;border-radius:4px;width:0%;transition:width .35s}
+    .prog-fill.v1{background:linear-gradient(90deg,var(--grn),#7dffc0)}
+    .prog-fill.v2{background:linear-gradient(90deg,var(--acc),#a29bfe)}
+    .prog-fill.v3{background:linear-gradient(90deg,var(--pnk),#fd79a8)}
+    .prog-det{font-size:.75rem;color:var(--mut)}
+
+    /* ── Buttons ── */
+    .btn{border:none;border-radius:12px;padding:14px;font-size:.95rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s,transform .1s}
+    .btn:active{transform:scale(.97)}
+    .btn-primary{background:var(--acc);color:#fff}
+    .btn-grn{background:var(--grn);color:#000}
+    .btn-next{background:var(--s2);color:var(--txt);border:1px solid #333}
+    .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+    /* ── Status pill ── */
+    .status-pill{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:4px 12px;font-size:.78rem;font-weight:600}
+    .pill-idle{background:#222;color:var(--mut)}
+    .pill-up{background:rgba(108,99,255,.15);color:var(--acc)}
+    .pill-ok{background:rgba(61,220,132,.15);color:var(--grn)}
+    .pill-err{background:rgba(255,101,132,.15);color:var(--pnk)}
+
+    /* ── Done screen ── */
+    .done-card{background:var(--s1);border-radius:var(--r);padding:28px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+    .done-ico{font-size:3.5rem}
+    .done-ttl{font-size:1.4rem;font-weight:800;color:var(--grn)}
+    .done-det{color:var(--mut);font-size:.88rem;line-height:1.6}
+
+    .err{background:#2a1520;border:1px solid var(--pnk);border-radius:12px;padding:12px 14px;font-size:.82rem;color:var(--pnk);line-height:1.5;white-space:pre-wrap}
+
+    /* fps */
+    .fps-row{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--mut)}
+    select{background:var(--s2);border:1px solid #333;border-radius:8px;padding:7px 10px;color:var(--txt);font-size:.82rem;flex:1}
+
+    input[type=text]{background:var(--s1);border:1px solid #333;border-radius:10px;padding:11px 14px;color:var(--txt);font-size:.95rem;width:100%;outline:none;transition:border-color .2s}
+    input:focus{border-color:var(--acc)}
+    label{font-size:.78rem;color:var(--mut)}
+    .field{display:flex;flex-direction:column;gap:5px}
+  </style>
+</head>
+<body>
+
+<h1>🎭 Head Capture</h1>
+<p class="sub">Nahrání 3 videí pro 3D model hlavy</p>
+
+<!-- ── Step indicator ── -->
+<div class="steps">
+  <div class="step-pip">
+    <div class="pip-circle active" id="pip1">1</div>
+    <div class="pip-label active" id="pipl1">Výška očí</div>
+  </div>
+  <div class="step-line" id="line12"></div>
+  <div class="step-pip">
+    <div class="pip-circle" id="pip2">2</div>
+    <div class="pip-label" id="pipl2">Shora</div>
+  </div>
+  <div class="step-line" id="line23"></div>
+  <div class="step-pip">
+    <div class="pip-circle" id="pip3">3</div>
+    <div class="pip-label" id="pipl3">Zdola</div>
+  </div>
+</div>
+
+<!-- ── Quality tips ── -->
+<div class="quality-card">
+  <div class="quality-title">🏆 Klíč ke kvalitnímu modelu</div>
+  <div class="quality-row">
+    <div class="quality-icon">🧱</div>
+    <div class="quality-text"><strong>Jednobarevné světlé pozadí</strong> — ideálně bílá nebo šedá stěna. Vzorované nebo tmavé pozadí ničí rekonstrukci.</div>
+  </div>
+  <div class="quality-row">
+    <div class="quality-icon">☀️</div>
+    <div class="quality-text"><strong>Rovnoměrné denní světlo</strong> — zastíněná okna nebo venku ve stínu. Přímé slunce = tvrdé stíny = chyby v modelu.</div>
+  </div>
+  <div class="quality-row">
+    <div class="quality-icon">😶</div>
+    <div class="quality-text"><strong>Klidná poloha, neutrální výraz</strong> — fotografovaný se nesmí hýbat. Zavřená ústa, oči rovně vpřed.</div>
+  </div>
+  <div class="quality-row">
+    <div class="quality-icon">🐢</div>
+    <div class="quality-text"><strong>Pomalý plynulý pohyb kamery</strong> — žádné trhání. Vzdálenost 50–80 cm od obličeje.</div>
+  </div>
+  <div class="quality-impact">⚡ Kvalita prostředí přímo určuje kvalitu 3D modelu — špatné světlo = rozmazaný, děravý mesh.</div>
+</div>
+
+<!-- ── Session input ── -->
+<div class="field">
+  <label>Název projektu (stejný jako na PC)</label>
+  <input type="text" id="session" placeholder="hlava_01"/>
+</div>
+
+<div class="fps-row">
+  <label>Snímků/s:</label>
+  <select id="fps">
+    <option value="0.5">0.5 fps</option>
+    <option value="1" selected>1 fps — doporučeno</option>
+    <option value="2">2 fps — pomalý pohyb</option>
+  </select>
+</div>
+
+<!-- ── VIDEO 1 ── -->
+<div class="video-card" id="card1">
+  <div class="video-card-header">
+    <div class="video-num v1">1</div>
+    <div>
+      <div class="video-card-title">Výška očí — 360° kruh</div>
+      <div class="video-card-sub">Kamera ve výšce očí, plný kruh kolem hlavy</div>
+    </div>
+  </div>
+  <!-- Top-view diagram -->
+  <div class="diag-wrap">
+    <svg class="diag" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg">
+      <!-- orbit -->
+      <circle cx="120" cy="105" r="75" fill="none" stroke="#3ddc84" stroke-width="1.5" stroke-dasharray="7 4"/>
+      <!-- person -->
+      <ellipse cx="120" cy="105" rx="17" ry="21" fill="#242429" stroke="#3ddc84" stroke-width="2"/>
+      <line x1="120" y1="84" x2="120" y2="74" stroke="#f0f0f5" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- direction arc -->
+      <path d="M195 105 A75 75 0 1 0 120 30" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"/>
+      <polygon points="120,19 113,33 127,33" fill="#3ddc84"/>
+      <!-- camera -->
+      <g transform="translate(188,96)">
+        <rect x="-10" y="-8" width="20" height="14" rx="3" fill="#3ddc84"/>
+        <circle cx="0" cy="-1" r="4" fill="#0d0d0f"/>
+      </g>
+      <!-- labels -->
+      <text x="120" y="24" text-anchor="middle" font-size="9" fill="#3ddc84" font-family="sans-serif">start</text>
+      <text x="120" y="192" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled shora — obejdi celý kruh</text>
+      <text x="22" y="109" text-anchor="middle" font-size="8" fill="#3ddc84" font-family="sans-serif" transform="rotate(-90,22,109)">výška očí</text>
+    </svg>
+  </div>
+  <div class="checklist">
+    <div class="chk">✅ <span>Začni čelem, obejdi <strong>celý kruh 360°</strong></span></div>
+    <div class="chk">⏱ <span>Délka: <strong>20–30 sekund</strong>, pomalý pohyb</span></div>
+    <div class="chk">📱 <span>Kamera <strong>ve výšce očí</strong> fotografovaného</span></div>
+  </div>
+  <div class="zone" id="zone1">
+    <input type="file" id="fin1" accept="video/*" style="display:none"/>
+    <div class="zico">📹</div>
+    <div class="zlbl" id="zlbl1">Vyber video č. 1</div>
+    <div class="zhint">výška očí — 360°</div>
+  </div>
+  <div class="prog" id="prog1" style="display:none">
+    <div class="prog-hdr"><span id="ptxt1">Nahrávám…</span><span class="prog-pct" id="ppct1">0%</span></div>
+    <div class="prog-track"><div class="prog-fill v1" id="pfill1"></div></div>
+    <div class="prog-det" id="pdet1"></div>
+  </div>
+  <div class="err" id="err1" style="display:none"></div>
+  <button class="btn btn-primary" id="btn1" disabled>Nahrát video 1</button>
+</div>
+
+<!-- ── VIDEO 2 ── -->
+<div class="video-card" id="card2" style="opacity:.45">
+  <div class="video-card-header">
+    <div class="video-num v2">2</div>
+    <div>
+      <div class="video-card-title">Mírně shora — ~30° nad výškou očí</div>
+      <div class="video-card-sub">Kamera výš, mírný pohled dolů, celý kruh</div>
+    </div>
+  </div>
+  <!-- Side-view diagram: above angle -->
+  <div class="diag-wrap">
+    <svg class="diag" viewBox="0 0 260 160" xmlns="http://www.w3.org/2000/svg">
+      <!-- person -->
+      <ellipse cx="130" cy="54" rx="19" ry="23" fill="#242429" stroke="#6c63ff" stroke-width="2"/>
+      <rect x="113" y="75" width="34" height="48" rx="8" fill="#242429" stroke="#6c63ff" stroke-width="1.5"/>
+      <line x1="105" y1="120" x2="155" y2="120" stroke="#444" stroke-width="1"/>
+      <!-- above angle arrows both sides -->
+      <line x1="35" y1="95" x2="109" y2="42" stroke="#6c63ff" stroke-width="2.5" stroke-dasharray="6 3"/>
+      <polygon points="109,42 98,43 103,54" fill="#6c63ff"/>
+      <g transform="translate(18,89)">
+        <rect x="0" y="0" width="18" height="12" rx="3" fill="#6c63ff"/>
+        <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
+      </g>
+      <line x1="225" y1="95" x2="151" y2="42" stroke="#6c63ff" stroke-width="2.5" stroke-dasharray="6 3"/>
+      <polygon points="151,42 162,43 157,54" fill="#6c63ff"/>
+      <g transform="translate(224,89)">
+        <rect x="0" y="0" width="18" height="12" rx="3" fill="#6c63ff"/>
+        <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
+      </g>
+      <!-- angle arc indicator -->
+      <path d="M80 54 A30 30 0 0 1 60 35" fill="none" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="3 2"/>
+      <text x="48" y="30" font-size="9" fill="#6c63ff" font-family="sans-serif">~30°</text>
+      <!-- orbit ring hint -->
+      <ellipse cx="130" cy="60" rx="80" ry="18" fill="none" stroke="#6c63ff" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
+      <text x="130" y="152" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled ze strany — kamera výš, obejdi dokola</text>
+    </svg>
+  </div>
+  <div class="checklist">
+    <div class="chk">📐 <span>Zdvihni kameru <strong>cca 30° nad oči</strong>, míř dolů na hlavu</span></div>
+    <div class="chk">🔄 <span>Obejdi <strong>celý kruh 360°</strong> — zachytíš temeno hlavy</span></div>
+    <div class="chk">⏱ <span>Délka: <strong>20–30 sekund</strong></span></div>
+  </div>
+  <div class="zone" id="zone2">
+    <input type="file" id="fin2" accept="video/*" style="display:none"/>
+    <div class="zico">📹</div>
+    <div class="zlbl" id="zlbl2">Vyber video č. 2</div>
+    <div class="zhint">mírně shora — 360°</div>
+  </div>
+  <div class="prog" id="prog2" style="display:none">
+    <div class="prog-hdr"><span id="ptxt2">Nahrávám…</span><span class="prog-pct" id="ppct2">0%</span></div>
+    <div class="prog-track"><div class="prog-fill v2" id="pfill2"></div></div>
+    <div class="prog-det" id="pdet2"></div>
+  </div>
+  <div class="err" id="err2" style="display:none"></div>
+  <button class="btn btn-primary" id="btn2" disabled>Nahrát video 2</button>
+</div>
+
+<!-- ── VIDEO 3 ── -->
+<div class="video-card" id="card3" style="opacity:.45">
+  <div class="video-card-header">
+    <div class="video-num v3">3</div>
+    <div>
+      <div class="video-card-title">Mírně zdola — brada a krk</div>
+      <div class="video-card-sub">Kamera níž, mírný pohled nahoru, půl kruh</div>
+    </div>
+  </div>
+  <!-- Side-view diagram: below angle -->
+  <div class="diag-wrap">
+    <svg class="diag" viewBox="0 0 260 160" xmlns="http://www.w3.org/2000/svg">
+      <!-- person -->
+      <ellipse cx="130" cy="54" rx="19" ry="23" fill="#242429" stroke="#ff6584" stroke-width="2"/>
+      <rect x="113" y="75" width="34" height="48" rx="8" fill="#242429" stroke="#ff6584" stroke-width="1.5"/>
+      <line x1="105" y1="123" x2="155" y2="123" stroke="#444" stroke-width="1"/>
+      <!-- below angle arrows -->
+      <line x1="35" y1="30" x2="109" y2="68" stroke="#ff6584" stroke-width="2.5" stroke-dasharray="6 3"/>
+      <polygon points="109,68 100,57 112,60" fill="#ff6584"/>
+      <g transform="translate(18,22)">
+        <rect x="0" y="0" width="18" height="12" rx="3" fill="#ff6584"/>
+        <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
+      </g>
+      <line x1="225" y1="30" x2="151" y2="68" stroke="#ff6584" stroke-width="2.5" stroke-dasharray="6 3"/>
+      <polygon points="151,68 160,57 148,60" fill="#ff6584"/>
+      <g transform="translate(224,22)">
+        <rect x="0" y="0" width="18" height="12" rx="3" fill="#ff6584"/>
+        <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
+      </g>
+      <!-- angle arc -->
+      <path d="M180 54 A30 30 0 0 0 200 35" fill="none" stroke="#ff6584" stroke-width="1.5" stroke-dasharray="3 2"/>
+      <text x="198" y="30" font-size="9" fill="#ff6584" font-family="sans-serif">~20°</text>
+      <!-- half-orbit hint -->
+      <path d="M50 75 A80 15 0 0 0 210 75" fill="none" stroke="#ff6584" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
+      <text x="130" y="152" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled ze strany — kamera níž, půl kruh (brada)</text>
+    </svg>
+  </div>
+  <div class="checklist">
+    <div class="chk">📐 <span>Spusti kameru <strong>cca 20° pod výšku očí</strong>, míř nahoru na bradu</span></div>
+    <div class="chk">🔄 <span>Stačí <strong>půl kruh</strong> (od ucha k uchu přes čelo)</span></div>
+    <div class="chk">⏱ <span>Délka: <strong>10–15 sekund</strong></span></div>
+  </div>
+  <div class="zone" id="zone3">
+    <input type="file" id="fin3" accept="video/*" style="display:none"/>
+    <div class="zico">📹</div>
+    <div class="zlbl" id="zlbl3">Vyber video č. 3</div>
+    <div class="zhint">mírně zdola — půl kruh</div>
+  </div>
+  <div class="prog" id="prog3" style="display:none">
+    <div class="prog-hdr"><span id="ptxt3">Nahrávám…</span><span class="prog-pct" id="ppct3">0%</span></div>
+    <div class="prog-track"><div class="prog-fill v3" id="pfill3"></div></div>
+    <div class="prog-det" id="pdet3"></div>
+  </div>
+  <div class="err" id="err3" style="display:none"></div>
+  <button class="btn btn-primary" id="btn3" disabled>Nahrát video 3</button>
+</div>
+
+<!-- ── Done ── -->
+<div class="done-card" id="done-card" style="display:none">
+  <div class="done-ico">🎉</div>
+  <div class="done-ttl">Všechna videa nahrána!</div>
+  <div class="done-det" id="done-det">Snímky se extrahují na PC.<br>Otevři Meshroom nebo RealityCapture a přidej složku s projektem.</div>
+</div>
+
+<script>
+const CHUNK = 5 * 1024 * 1024;
+let useR2 = false;
+const files = { 1: null, 2: null, 3: null };
+const done  = { 1: false, 2: false, 3: false };
+
+// Session from URL param
+const urlSession = new URLSearchParams(location.search).get('session') || '';
+if (urlSession) document.getElementById('session').value = urlSession;
+
+// Detect R2
+(async () => {
+  try {
+    const d = await fetch('/qr').then(r => r.json());
+    useR2 = !!d.r2Ready;
+  } catch {}
+})();
+
+// Wire up each video card
+[1,2,3].forEach(n => {
+  const zone = document.getElementById(`zone${n}`);
+  const fin  = document.getElementById(`fin${n}`);
+  const btn  = document.getElementById(`btn${n}`);
+
+  zone.addEventListener('click', () => fin.click());
+  fin.addEventListener('change', () => { if (fin.files[0]) pick(n, fin.files[0]); });
+  btn.addEventListener('click', () => upload(n));
+});
+
+function pick(n, f) {
+  files[n] = f;
+  const zone = document.getElementById(`zone${n}`);
+  zone.classList.add('ready');
+  document.getElementById(`zlbl${n}`).textContent = `${f.name}  (${(f.size/1024/1024).toFixed(1)} MB)`;
+  zone.querySelector('.zhint').textContent = 'klepni pro změnu';
+  document.getElementById(`btn${n}`).disabled = false;
+}
+
+async function upload(n) {
+  const f = files[n];
+  if (!f) return;
+  const session = sessionVal();
+  const fps = document.getElementById('fps').value;
+  document.getElementById(`btn${n}`).disabled = true;
+  document.getElementById(`err${n}`).style.display = 'none';
+  document.getElementById(`prog${n}`).style.display = 'flex';
+
+  try {
+    if (useR2) await uploadR2(n, f, session, fps);
+    else await uploadChunked(n, f, session, fps);
+
+    // Mark done
+    done[n] = true;
+    const zone = document.getElementById(`zone${n}`);
+    zone.classList.remove('ready');
+    zone.classList.add('done-z');
+    zone.querySelector('.zico').textContent = '✅';
+    document.getElementById(`zlbl${n}`).textContent = 'Nahráno!';
+    document.getElementById(`prog${n}`).style.display = 'none';
+
+    // Update step indicator
+    updatePips(n);
+
+    // Unlock next card
+    if (n < 3) {
+      const next = document.getElementById(`card${n+1}`);
+      next.style.opacity = '1';
+      next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // All done?
+    if (done[1] && done[2] && done[3]) {
+      document.getElementById('done-card').style.display = 'flex';
+      document.getElementById('done-card').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (e) {
+    showErr(n, e.message);
+    document.getElementById(`btn${n}`).disabled = false;
+    document.getElementById(`prog${n}`).style.display = 'none';
+  }
+}
+
+function updatePips(n) {
+  document.getElementById(`pip${n}`).className = 'pip-circle done';
+  document.getElementById(`pip${n}`).textContent = '✓';
+  if (n < 3) {
+    document.getElementById(`line1${n===1?'':n}2`[0]==='l' ? `line${n}${n+1}` : `line${n}${n+1}`).classList.add('done');
+    document.getElementById(`pip${n+1}`).className = 'pip-circle active';
+    document.getElementById(`pipl${n+1}`).className = 'pip-label active';
+  }
+  if (n === 1) document.getElementById('line12').classList.add('done');
+  if (n === 2) document.getElementById('line23').classList.add('done');
+}
+
+// ── R2 upload ─────────────────────────────────────────────────────────────────
+async function uploadR2(n, f, session, fps) {
+  setProg(n, 3, 'Připravuji…', '');
+  const { url, key } = await fetch(`/r2/presign?session=${session}&filename=${encodeURIComponent(f.name)}&videoNum=${n}`)
+    .then(r => r.ok ? r.json() : r.json().then(d => { throw new Error(d.error); }));
+
+  await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.upload.onprogress = e => {
+      if (!e.lengthComputable) return;
+      setProg(n, 5 + Math.round(e.loaded/e.total*80), 'Nahrávám do R2…',
+        `${(e.loaded/1024/1024).toFixed(1)} / ${(e.total/1024/1024).toFixed(1)} MB`);
+    };
+    xhr.onload  = () => xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
+    xhr.onerror = () => reject(new Error('Síťová chyba'));
+    xhr.send(f);
+  });
+
+  setProg(n, 90, 'Spouštím zpracování…', '');
+  await fetch('/r2/process', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session, key, fps, videoNum: n }),
+  });
+  setProg(n, 100, '✅ Hotovo!', 'Snímky se extrahují na PC');
+}
+
+// ── Chunked upload ─────────────────────────────────────────────────────────────
+async function uploadChunked(n, f, session, fps) {
+  const total = Math.ceil(f.size / CHUNK);
+  for (let i = 0; i < total; i++) {
+    const fd = new FormData();
+    fd.append('chunk', f.slice(i*CHUNK, Math.min((i+1)*CHUNK, f.size)), f.name);
+    fd.append('session', session);
+    fd.append('chunkIndex', i);
+    fd.append('totalChunks', total);
+    fd.append('filename', f.name);
+    fd.append('videoNum', n);
+    const r = await fetch('/upload/chunk', { method:'POST', body:fd });
+    if (!r.ok) throw new Error(`Chunk ${i} selhal`);
+    setProg(n, Math.round((i+1)/total*80), `Nahrávám… ${i+1}/${total}`,
+      `${((i+1)*CHUNK/1024/1024).toFixed(1)} / ${(f.size/1024/1024).toFixed(1)} MB`);
+  }
+  setProg(n, 85, 'Sestavuji…', '');
+  const res = await fetch('/upload/assemble', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ session, totalChunks:total, filename:f.name, fps, videoNum:n }),
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.error + (d.detail ? '\n'+d.detail : ''));
+  setProg(n, 100, '✅ Hotovo!', `${d.frames} snímků extrahováno`);
+}
+
+function sessionVal() {
+  return document.getElementById('session').value.trim().replace(/[^a-z0-9_-]/gi,'_') || 'hlava_01';
+}
+function setProg(n, pct, txt, det) {
+  document.getElementById(`pfill${n}`).style.width = pct+'%';
+  document.getElementById(`ppct${n}`).textContent  = pct+'%';
+  document.getElementById(`ptxt${n}`).textContent  = txt;
+  document.getElementById(`pdet${n}`).textContent  = det;
+}
+function showErr(n, msg) {
+  const e = document.getElementById(`err${n}`);
+  e.style.display = 'block';
+  e.textContent = '❌ '+msg;
+}
+</script>
+</body>
+</html>
