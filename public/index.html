@@ -156,13 +156,20 @@
     <!-- R2 badge -->
     <div id="r2-badge" class="r2-badge" style="display:none">☁️ Cloudflare R2 aktivní</div>
 
-    <!-- QR -->
-    <div class="qr-card" id="qr-card">
-      <div class="qr-title">📱 Druhá osoba naskenuje QR telefonem</div>
-      <div class="qr-subtitle">Otevře se průvodce pro nahrání 3 videí přímo z telefonu</div>
-      <div class="qr-img-wrap"><img id="qr-img" src="" alt="QR"/></div>
-      <div class="qr-url" id="qr-url"></div>
-    </div>
+    <!-- Primární tlačítko — otevřít na tomto zařízení -->
+    <a class="btn-open-here" id="btn-open-here" href="#">
+      📱 Nahrát na tomto zařízení
+    </a>
+
+    <!-- QR — sekundární, pro případ druhé osoby / PC -->
+    <details class="qr-details" id="qr-details">
+      <summary>🖥️ Filmuji na jiném telefonu — zobraz QR kód</summary>
+      <div class="qr-card" id="qr-card">
+        <div class="qr-subtitle">Druhá osoba naskenuje QR a otevře nahrávací stránku</div>
+        <div class="qr-img-wrap"><img id="qr-img" src="" alt="QR"/></div>
+        <div class="qr-url" id="qr-url"></div>
+      </div>
+    </details>
 
     <!-- 3 Video status cards -->
     <div class="vstatus-list">

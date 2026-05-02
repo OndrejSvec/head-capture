@@ -48,14 +48,23 @@ document.getElementById('back-upload').addEventListener('click', () => {
   show('screen-guide');
 });
 
+let _uploadUrl = null; // uložíme URL pro tlačítko "nahrát zde"
+
 async function loadQR() {
   try {
     const d = await fetch('/qr').then(r => r.json());
+    _uploadUrl = d.url; // URL pro upload (obsahuje session + secret)
+
+    // Tlačítko — otevřít upload na tomto zařízení
+    document.getElementById('btn-open-here').href = d.url;
+
+    // QR kód (sekundární)
     document.getElementById('qr-img').src = d.qr;
     document.getElementById('qr-url').textContent = d.url;
     if (d.r2Ready) document.getElementById('r2-badge').style.display = 'block';
   } catch {
-    document.getElementById('qr-card').style.display = 'none';
+    // Pokud selže, skryj QR sekci
+    document.getElementById('qr-details').style.display = 'none';
   }
 }
 
