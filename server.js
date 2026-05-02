@@ -114,15 +114,15 @@ function getPublicBase(req) {
 // ── QR — vygeneruje unikátní link s embedded secret ──────────────────────────
 app.get('/qr', async (req, res) => {
   const base = getPublicBase(req);
-  const sess = createSession(req.query.label || '');
-  // URL obsahuje session ID + secret → QR funguje jako jednorázový přístup
-  const params = new URLSearchParams({ session: sess.id });
+  // Použij jméno projektu z PC jako session — mobil a PC musí sdílet stejný klíč
+  const label = (req.query.label || '').replace(/[^a-z0-9_-]/gi, '_') || crypto.randomBytes(4).toString('hex');
+  const params = new URLSearchParams({ session: label });
   if (UPLOAD_SECRET) params.set('secret', UPLOAD_SECRET);
   const url = `${base}/upload.html?${params}`;
 
   try {
     const qr = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: '#6c63ff', light: '#0d0d0f' } });
-    res.json({ qr, url, sessionId: sess.id, r2Ready: !!r2 });
+    res.json({ qr, url, r2Ready: !!r2 });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

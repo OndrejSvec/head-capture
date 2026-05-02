@@ -52,7 +52,7 @@ let _uploadUrl = null; // uložíme URL pro tlačítko "nahrát zde"
 
 async function loadQR() {
   try {
-    const d = await fetch('/qr').then(r => r.json());
+    const d = await fetch(`/qr?label=${encodeURIComponent(state.session)}`).then(r => r.json());
     _uploadUrl = d.url; // URL pro upload (obsahuje session + secret)
 
     // Tlačítko — otevřít upload na tomto zařízení
