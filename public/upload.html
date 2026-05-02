@@ -54,13 +54,19 @@
     .chk{display:flex;gap:8px;font-size:.82rem;color:var(--mut);line-height:1.35}
     .chk strong{color:var(--txt)}
 
-    /* ── Upload zone ── */
-    .zone{background:var(--s2);border:2px dashed #444;border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .2s}
-    .zone.ready{border-color:var(--acc);border-style:solid}
-    .zone.done-z{border-color:var(--grn);border-style:solid}
-    .zone .zico{font-size:2rem}
-    .zone .zlbl{font-weight:600;font-size:.9rem}
-    .zone .zhint{font-size:.75rem;color:var(--mut)}
+    /* ── Pick area ── */
+    .pick-area{display:flex;flex-direction:column;gap:8px}
+    .btn-pick-rec{background:var(--acc);color:#fff;border:none;border-radius:12px;padding:16px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .btn-pick-rec:active{transform:scale(.97)}
+    .btn-pick-gal{background:var(--s2);color:var(--txt);border:1px solid #333;border-radius:12px;padding:13px;font-size:.9rem;font-weight:600;cursor:pointer;width:100%;transition:opacity .2s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .btn-pick-gal:active{transform:scale(.97)}
+
+    /* ── Ready zone (after picking) ── */
+    .zone-ready{background:var(--s2);border:2px solid var(--acc);border-radius:12px;padding:16px;display:none;flex-direction:column;align-items:center;gap:6px;text-align:center}
+    .zone-ready.done-z{border-color:var(--grn)}
+    .zone-ready .zico{font-size:2rem}
+    .zone-ready .zlbl{font-weight:600;font-size:.9rem}
+    .zone-ready .zpick{font-size:.75rem;color:var(--acc);cursor:pointer;margin-top:2px;background:none;border:none;text-decoration:underline;padding:0}
 
     /* ── Progress ── */
     .prog{display:flex;flex-direction:column;gap:6px}
@@ -104,6 +110,25 @@
     input:focus{border-color:var(--acc)}
     label{font-size:.78rem;color:var(--mut)}
     .field{display:flex;flex-direction:column;gap:5px}
+
+    /* ── Recording modal ── */
+    #rec-modal{position:fixed;inset:0;background:#000;z-index:1000;display:none;flex-direction:column}
+    #rec-modal.open{display:flex}
+    #rec-preview{width:100%;flex:1;object-fit:cover;background:#111;min-height:0}
+    .rec-ui{padding:20px 16px 28px;display:flex;flex-direction:column;align-items:center;gap:14px;background:rgba(13,13,15,.9);backdrop-filter:blur(12px);flex-shrink:0}
+    .rec-instruction{font-size:.9rem;color:var(--txt);text-align:center;line-height:1.5;max-width:300px}
+    .rec-timer-wrap{display:flex;align-items:center;gap:8px;min-height:44px}
+    .rec-dot{width:12px;height:12px;border-radius:50%;background:var(--pnk);flex-shrink:0;opacity:0;transition:opacity .2s}
+    .rec-dot.on{opacity:1;animation:blink 1s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+    .rec-timer{font-size:2.8rem;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+    .rec-timer.recording{color:var(--pnk)}
+    .rec-controls{display:flex;gap:10px;width:100%;max-width:360px}
+    .btn-rec-action{background:var(--pnk);color:#fff;border:none;border-radius:14px;padding:17px;font-size:1.05rem;font-weight:800;cursor:pointer;flex:1;transition:transform .1s,background .2s}
+    .btn-rec-action:active{transform:scale(.97)}
+    .btn-rec-action.stop{background:#c0392b}
+    .btn-rec-cancel{background:var(--s2);color:var(--mut);border:1px solid #444;border-radius:14px;padding:17px;font-size:1rem;font-weight:600;cursor:pointer;min-width:80px}
+    .rec-no-support{color:var(--org);font-size:.82rem;text-align:center;padding:8px 12px;background:rgba(255,179,71,.08);border-radius:8px;border:1px solid rgba(255,179,71,.25)}
   </style>
 </head>
 <body>
@@ -175,23 +200,17 @@
       <div class="video-card-sub">Kamera ve výšce očí, plný kruh kolem hlavy</div>
     </div>
   </div>
-  <!-- Top-view diagram -->
   <div class="diag-wrap">
     <svg class="diag" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg">
-      <!-- orbit -->
       <circle cx="120" cy="105" r="75" fill="none" stroke="#3ddc84" stroke-width="1.5" stroke-dasharray="7 4"/>
-      <!-- person -->
       <ellipse cx="120" cy="105" rx="17" ry="21" fill="#242429" stroke="#3ddc84" stroke-width="2"/>
       <line x1="120" y1="84" x2="120" y2="74" stroke="#f0f0f5" stroke-width="1.5" stroke-linecap="round"/>
-      <!-- direction arc -->
       <path d="M195 105 A75 75 0 1 0 120 30" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"/>
       <polygon points="120,19 113,33 127,33" fill="#3ddc84"/>
-      <!-- camera -->
       <g transform="translate(188,96)">
         <rect x="-10" y="-8" width="20" height="14" rx="3" fill="#3ddc84"/>
         <circle cx="0" cy="-1" r="4" fill="#0d0d0f"/>
       </g>
-      <!-- labels -->
       <text x="120" y="24" text-anchor="middle" font-size="9" fill="#3ddc84" font-family="sans-serif">start</text>
       <text x="120" y="192" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled shora — obejdi celý kruh</text>
       <text x="22" y="109" text-anchor="middle" font-size="8" fill="#3ddc84" font-family="sans-serif" transform="rotate(-90,22,109)">výška očí</text>
@@ -202,11 +221,15 @@
     <div class="chk">⏱ <span>Délka: <strong>20–30 sekund</strong>, pomalý pohyb</span></div>
     <div class="chk">📱 <span>Kamera <strong>ve výšce očí</strong> fotografovaného</span></div>
   </div>
-  <div class="zone" id="zone1">
+  <div class="pick-area" id="pick-area1">
+    <button class="btn-pick-rec" onclick="openRecorder(1)">📹 Natočit nyní</button>
+    <button class="btn-pick-gal" onclick="openGallery(1)">📁 Vybrat z galerie</button>
     <input type="file" id="fin1" accept="video/*" style="display:none"/>
-    <div class="zico">📹</div>
-    <div class="zlbl" id="zlbl1">Vyber video č. 1</div>
-    <div class="zhint">výška očí — 360°</div>
+  </div>
+  <div class="zone-ready" id="zone1">
+    <div class="zico" id="zico1">🎬</div>
+    <div class="zlbl" id="zlbl1"></div>
+    <button class="zpick" onclick="resetPick(1)">Natočit/vybrat znovu</button>
   </div>
   <div class="prog" id="prog1" style="display:none">
     <div class="prog-hdr"><span id="ptxt1">Nahrávám…</span><span class="prog-pct" id="ppct1">0%</span></div>
@@ -214,7 +237,7 @@
     <div class="prog-det" id="pdet1"></div>
   </div>
   <div class="err" id="err1" style="display:none"></div>
-  <button class="btn btn-primary" id="btn1" disabled>Nahrát video 1</button>
+  <button class="btn btn-primary" id="btn1" disabled>Nahrát video 1 →</button>
 </div>
 
 <!-- ── VIDEO 2 ── -->
@@ -226,14 +249,11 @@
       <div class="video-card-sub">Kamera výš, mírný pohled dolů, celý kruh</div>
     </div>
   </div>
-  <!-- Side-view diagram: above angle -->
   <div class="diag-wrap">
     <svg class="diag" viewBox="0 0 260 160" xmlns="http://www.w3.org/2000/svg">
-      <!-- person -->
       <ellipse cx="130" cy="54" rx="19" ry="23" fill="#242429" stroke="#6c63ff" stroke-width="2"/>
       <rect x="113" y="75" width="34" height="48" rx="8" fill="#242429" stroke="#6c63ff" stroke-width="1.5"/>
       <line x1="105" y1="120" x2="155" y2="120" stroke="#444" stroke-width="1"/>
-      <!-- above angle arrows both sides -->
       <line x1="35" y1="95" x2="109" y2="42" stroke="#6c63ff" stroke-width="2.5" stroke-dasharray="6 3"/>
       <polygon points="109,42 98,43 103,54" fill="#6c63ff"/>
       <g transform="translate(18,89)">
@@ -246,10 +266,8 @@
         <rect x="0" y="0" width="18" height="12" rx="3" fill="#6c63ff"/>
         <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
       </g>
-      <!-- angle arc indicator -->
       <path d="M80 54 A30 30 0 0 1 60 35" fill="none" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="3 2"/>
       <text x="48" y="30" font-size="9" fill="#6c63ff" font-family="sans-serif">~30°</text>
-      <!-- orbit ring hint -->
       <ellipse cx="130" cy="60" rx="80" ry="18" fill="none" stroke="#6c63ff" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
       <text x="130" y="152" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled ze strany — kamera výš, obejdi dokola</text>
     </svg>
@@ -259,11 +277,15 @@
     <div class="chk">🔄 <span>Obejdi <strong>celý kruh 360°</strong> — zachytíš temeno hlavy</span></div>
     <div class="chk">⏱ <span>Délka: <strong>20–30 sekund</strong></span></div>
   </div>
-  <div class="zone" id="zone2">
+  <div class="pick-area" id="pick-area2">
+    <button class="btn-pick-rec" onclick="openRecorder(2)">📹 Natočit nyní</button>
+    <button class="btn-pick-gal" onclick="openGallery(2)">📁 Vybrat z galerie</button>
     <input type="file" id="fin2" accept="video/*" style="display:none"/>
-    <div class="zico">📹</div>
-    <div class="zlbl" id="zlbl2">Vyber video č. 2</div>
-    <div class="zhint">mírně shora — 360°</div>
+  </div>
+  <div class="zone-ready" id="zone2">
+    <div class="zico" id="zico2">🎬</div>
+    <div class="zlbl" id="zlbl2"></div>
+    <button class="zpick" onclick="resetPick(2)">Natočit/vybrat znovu</button>
   </div>
   <div class="prog" id="prog2" style="display:none">
     <div class="prog-hdr"><span id="ptxt2">Nahrávám…</span><span class="prog-pct" id="ppct2">0%</span></div>
@@ -271,7 +293,7 @@
     <div class="prog-det" id="pdet2"></div>
   </div>
   <div class="err" id="err2" style="display:none"></div>
-  <button class="btn btn-primary" id="btn2" disabled>Nahrát video 2</button>
+  <button class="btn btn-primary" id="btn2" disabled>Nahrát video 2 →</button>
 </div>
 
 <!-- ── VIDEO 3 ── -->
@@ -283,14 +305,11 @@
       <div class="video-card-sub">Kamera níž, mírný pohled nahoru, půl kruh</div>
     </div>
   </div>
-  <!-- Side-view diagram: below angle -->
   <div class="diag-wrap">
     <svg class="diag" viewBox="0 0 260 160" xmlns="http://www.w3.org/2000/svg">
-      <!-- person -->
       <ellipse cx="130" cy="54" rx="19" ry="23" fill="#242429" stroke="#ff6584" stroke-width="2"/>
       <rect x="113" y="75" width="34" height="48" rx="8" fill="#242429" stroke="#ff6584" stroke-width="1.5"/>
       <line x1="105" y1="123" x2="155" y2="123" stroke="#444" stroke-width="1"/>
-      <!-- below angle arrows -->
       <line x1="35" y1="30" x2="109" y2="68" stroke="#ff6584" stroke-width="2.5" stroke-dasharray="6 3"/>
       <polygon points="109,68 100,57 112,60" fill="#ff6584"/>
       <g transform="translate(18,22)">
@@ -303,10 +322,8 @@
         <rect x="0" y="0" width="18" height="12" rx="3" fill="#ff6584"/>
         <circle cx="9" cy="6" r="3.5" fill="#0d0d0f"/>
       </g>
-      <!-- angle arc -->
       <path d="M180 54 A30 30 0 0 0 200 35" fill="none" stroke="#ff6584" stroke-width="1.5" stroke-dasharray="3 2"/>
       <text x="198" y="30" font-size="9" fill="#ff6584" font-family="sans-serif">~20°</text>
-      <!-- half-orbit hint -->
       <path d="M50 75 A80 15 0 0 0 210 75" fill="none" stroke="#ff6584" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
       <text x="130" y="152" text-anchor="middle" font-size="9" fill="#8888a0" font-family="sans-serif">pohled ze strany — kamera níž, půl kruh (brada)</text>
     </svg>
@@ -316,11 +333,15 @@
     <div class="chk">🔄 <span>Stačí <strong>půl kruh</strong> (od ucha k uchu přes čelo)</span></div>
     <div class="chk">⏱ <span>Délka: <strong>10–15 sekund</strong></span></div>
   </div>
-  <div class="zone" id="zone3">
+  <div class="pick-area" id="pick-area3">
+    <button class="btn-pick-rec" onclick="openRecorder(3)">📹 Natočit nyní</button>
+    <button class="btn-pick-gal" onclick="openGallery(3)">📁 Vybrat z galerie</button>
     <input type="file" id="fin3" accept="video/*" style="display:none"/>
-    <div class="zico">📹</div>
-    <div class="zlbl" id="zlbl3">Vyber video č. 3</div>
-    <div class="zhint">mírně zdola — půl kruh</div>
+  </div>
+  <div class="zone-ready" id="zone3">
+    <div class="zico" id="zico3">🎬</div>
+    <div class="zlbl" id="zlbl3"></div>
+    <button class="zpick" onclick="resetPick(3)">Natočit/vybrat znovu</button>
   </div>
   <div class="prog" id="prog3" style="display:none">
     <div class="prog-hdr"><span id="ptxt3">Nahrávám…</span><span class="prog-pct" id="ppct3">0%</span></div>
@@ -328,7 +349,7 @@
     <div class="prog-det" id="pdet3"></div>
   </div>
   <div class="err" id="err3" style="display:none"></div>
-  <button class="btn btn-primary" id="btn3" disabled>Nahrát video 3</button>
+  <button class="btn btn-primary" id="btn3" disabled>Nahrát video 3 →</button>
 </div>
 
 <!-- ── Done ── -->
@@ -338,20 +359,43 @@
   <div class="done-det" id="done-det">Snímky se extrahují na PC.<br>Otevři Meshroom nebo RealityCapture a přidej složku s projektem.</div>
 </div>
 
+<!-- ── Recording modal ── -->
+<div id="rec-modal">
+  <video id="rec-preview" autoplay muted playsinline></video>
+  <div class="rec-ui">
+    <div class="rec-instruction" id="rec-instruction">Připravuji kameru…</div>
+    <div class="rec-timer-wrap">
+      <div class="rec-dot" id="rec-dot"></div>
+      <div class="rec-timer" id="rec-timer">0:00</div>
+    </div>
+    <div class="rec-controls">
+      <button class="btn-rec-action" id="rec-btn" onclick="toggleRecording()">⏺ Začít nahrávat</button>
+      <button class="btn-rec-cancel" onclick="closeRecorder()">✕ Zrušit</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const CHUNK = 5 * 1024 * 1024;
 let useR2 = false;
 const files = { 1: null, 2: null, 3: null };
 const done  = { 1: false, 2: false, 3: false };
 
+// Instrukce pro každé video
+const REC_INSTRUCTIONS = {
+  1: 'Kamera ve výšce očí — obejdi pomalu celý kruh 360° (20–30 s)',
+  2: 'Kamera ~30° nad očima, míř dolů na temeno — obejdi celý kruh 360° (20–30 s)',
+  3: 'Kamera ~20° pod očima, míř nahoru na bradu — půl kruh (10–15 s)',
+};
+
 // Načti session + secret z QR URL
-const urlParams  = new URLSearchParams(location.search);
+const urlParams   = new URLSearchParams(location.search);
 const URL_SESSION = urlParams.get('session') || '';
 const URL_SECRET  = urlParams.get('secret')  || '';
 
 if (URL_SESSION) {
   document.getElementById('session').value = URL_SESSION;
-  document.getElementById('session').readOnly = true; // session je z QR, nelze měnit
+  document.getElementById('session').readOnly = true;
 }
 
 // Zobraz chybu pokud URL nemá session
@@ -363,7 +407,7 @@ if (!URL_SESSION) {
   </div>`;
 }
 
-// Helper — přidá secret do URL nebo body
+// Helper — přidá secret do URL
 function withSecret(url) {
   if (!URL_SECRET) return url;
   const u = new URL(url, location.origin);
@@ -379,26 +423,147 @@ function withSecret(url) {
   } catch {}
 })();
 
-// Wire up each video card
+// Wire up file inputs (gallery fallback)
 [1,2,3].forEach(n => {
-  const zone = document.getElementById(`zone${n}`);
-  const fin  = document.getElementById(`fin${n}`);
-  const btn  = document.getElementById(`btn${n}`);
-
-  zone.addEventListener('click', () => fin.click());
-  fin.addEventListener('change', () => { if (fin.files[0]) pick(n, fin.files[0]); });
-  btn.addEventListener('click', () => upload(n));
+  document.getElementById(`fin${n}`).addEventListener('change', e => {
+    if (e.target.files[0]) pick(n, e.target.files[0]);
+  });
+  document.getElementById(`btn${n}`).addEventListener('click', () => upload(n));
 });
+
+function openGallery(n) {
+  document.getElementById(`fin${n}`).click();
+}
 
 function pick(n, f) {
   files[n] = f;
+  document.getElementById(`pick-area${n}`).style.display = 'none';
   const zone = document.getElementById(`zone${n}`);
-  zone.classList.add('ready');
-  document.getElementById(`zlbl${n}`).textContent = `${f.name}  (${(f.size/1024/1024).toFixed(1)} MB)`;
-  zone.querySelector('.zhint').textContent = 'klepni pro změnu';
+  zone.style.display = 'flex';
+  zone.classList.remove('done-z');
+  document.getElementById(`zico${n}`).textContent = '🎬';
+  document.getElementById(`zlbl${n}`).textContent = `Připraveno — ${(f.size/1024/1024).toFixed(1)} MB`;
   document.getElementById(`btn${n}`).disabled = false;
 }
 
+function resetPick(n) {
+  files[n] = null;
+  document.getElementById(`zone${n}`).style.display = 'none';
+  document.getElementById(`pick-area${n}`).style.display = 'flex';
+  document.getElementById(`btn${n}`).disabled = true;
+  document.getElementById(`err${n}`).style.display = 'none';
+  // Reset file input so same file can be re-selected
+  document.getElementById(`fin${n}`).value = '';
+}
+
+// ── MediaRecorder ─────────────────────────────────────────────────────────────
+let recState = { n: 0, stream: null, recorder: null, chunks: [], timerInterval: null, seconds: 0, isRecording: false };
+
+async function openRecorder(n) {
+  recState.n = n;
+  recState.chunks = [];
+  recState.isRecording = false;
+  recState.seconds = 0;
+
+  const modal = document.getElementById('rec-modal');
+  modal.classList.add('open');
+  document.getElementById('rec-instruction').textContent = REC_INSTRUCTIONS[n];
+  document.getElementById('rec-timer').textContent = '0:00';
+  document.getElementById('rec-timer').classList.remove('recording');
+  document.getElementById('rec-dot').classList.remove('on');
+  document.getElementById('rec-btn').textContent = '⏺ Začít nahrávat';
+  document.getElementById('rec-btn').classList.remove('stop');
+
+  try {
+    recState.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    document.getElementById('rec-preview').srcObject = recState.stream;
+  } catch (e) {
+    // Camera access failed — close modal and fall back to gallery
+    modal.classList.remove('open');
+    alert('Kamera není dostupná: ' + e.message + '\nPoužij tlačítko "Z galerie".');
+  }
+}
+
+function toggleRecording() {
+  if (!recState.isRecording) {
+    startRecording();
+  } else {
+    stopRecording();
+  }
+}
+
+function startRecording() {
+  const stream = recState.stream;
+  if (!stream) return;
+
+  // Pick best supported MIME type
+  const mimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+  try {
+    recState.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+  } catch {
+    recState.recorder = new MediaRecorder(stream);
+  }
+
+  recState.chunks = [];
+  recState.recorder.ondataavailable = e => { if (e.data.size > 0) recState.chunks.push(e.data); };
+  recState.recorder.onstop = onRecordingDone;
+  recState.recorder.start(250); // collect chunks every 250ms
+  recState.isRecording = true;
+  recState.seconds = 0;
+
+  document.getElementById('rec-btn').textContent = '⏹ Zastavit nahrávání';
+  document.getElementById('rec-btn').classList.add('stop');
+  document.getElementById('rec-timer').classList.add('recording');
+  document.getElementById('rec-dot').classList.add('on');
+
+  recState.timerInterval = setInterval(() => {
+    recState.seconds++;
+    const m = Math.floor(recState.seconds / 60);
+    const s = recState.seconds % 60;
+    document.getElementById('rec-timer').textContent = `${m}:${String(s).padStart(2,'0')}`;
+  }, 1000);
+}
+
+function stopRecording() {
+  clearInterval(recState.timerInterval);
+  if (recState.recorder && recState.recorder.state !== 'inactive') {
+    recState.recorder.stop();
+  }
+}
+
+function onRecordingDone() {
+  const mimeType = recState.recorder.mimeType || 'video/webm';
+  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(recState.chunks, { type: mimeType });
+  const file = new File([blob], `video_v${recState.n}.${ext}`, { type: mimeType });
+
+  closeRecorder(false); // close but keep stream cleanup
+  pick(recState.n, file);
+}
+
+function closeRecorder(stopStream = true) {
+  clearInterval(recState.timerInterval);
+
+  if (recState.recorder && recState.recorder.state !== 'inactive') {
+    recState.recorder.onstop = null; // prevent onRecordingDone from firing when cancelling
+    recState.recorder.stop();
+  }
+
+  if (recState.stream) {
+    recState.stream.getTracks().forEach(t => t.stop());
+    recState.stream = null;
+  }
+
+  document.getElementById('rec-preview').srcObject = null;
+  document.getElementById('rec-modal').classList.remove('open');
+  recState.isRecording = false;
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
 async function upload(n) {
   const f = files[n];
   if (!f) return;
@@ -415,10 +580,10 @@ async function upload(n) {
     // Mark done
     done[n] = true;
     const zone = document.getElementById(`zone${n}`);
-    zone.classList.remove('ready');
     zone.classList.add('done-z');
-    zone.querySelector('.zico').textContent = '✅';
+    document.getElementById(`zico${n}`).textContent = '✅';
     document.getElementById(`zlbl${n}`).textContent = 'Nahráno!';
+    zone.querySelector('.zpick').style.display = 'none'; // hide re-pick after upload
     document.getElementById(`prog${n}`).style.display = 'none';
 
     // Update step indicator
@@ -445,13 +610,12 @@ async function upload(n) {
 function updatePips(n) {
   document.getElementById(`pip${n}`).className = 'pip-circle done';
   document.getElementById(`pip${n}`).textContent = '✓';
+  if (n === 1) { document.getElementById('line12').classList.add('done'); }
+  if (n === 2) { document.getElementById('line23').classList.add('done'); }
   if (n < 3) {
-    document.getElementById(`line1${n===1?'':n}2`[0]==='l' ? `line${n}${n+1}` : `line${n}${n+1}`).classList.add('done');
     document.getElementById(`pip${n+1}`).className = 'pip-circle active';
     document.getElementById(`pipl${n+1}`).className = 'pip-label active';
   }
-  if (n === 1) document.getElementById('line12').classList.add('done');
-  if (n === 2) document.getElementById('line23').classList.add('done');
 }
 
 // ── R2 upload ─────────────────────────────────────────────────────────────────
