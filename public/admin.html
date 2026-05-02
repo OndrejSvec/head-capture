@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin — Head Capture</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0d0d0f;--s1:#1a1a1f;--s2:#242429;--acc:#6c63ff;--grn:#3ddc84;--pnk:#ff6584;--org:#ffb347;--txt:#f0f0f5;--mut:#8888a0;--r:14px}
+    body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;padding:28px 20px 56px;max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+    h1{font-size:1.6rem;font-weight:900;letter-spacing:-.5px}
+    .sub{color:var(--mut);font-size:.88rem}
+
+    /* auth */
+    .auth-card{background:var(--s1);border-radius:var(--r);padding:24px;display:flex;flex-direction:column;gap:12px}
+    .auth-card label{font-size:.8rem;color:var(--mut)}
+    .auth-card input{background:var(--s2);border:1px solid #333;border-radius:10px;padding:12px 14px;color:var(--txt);font-size:1rem;outline:none;transition:border-color .2s;width:100%}
+    .auth-card input:focus{border-color:var(--acc)}
+    .btn{border:none;border-radius:11px;padding:13px 20px;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s}
+    .btn:active{transform:scale(.97)}
+    .btn-primary{background:var(--acc);color:#fff}
+    .btn-sm{padding:8px 16px;font-size:.82rem;border-radius:9px}
+    .btn-dl{background:var(--grn);color:#000}
+    .btn-ref{background:var(--s2);color:var(--txt);border:1px solid #333}
+
+    /* sessions */
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .toolbar h2{font-size:1.1rem;font-weight:700}
+    .sessions{display:flex;flex-direction:column;gap:10px}
+    .sess-card{background:var(--s1);border-radius:var(--r);padding:16px 18px;display:flex;align-items:center;gap:14px}
+    .sess-icon{font-size:1.8rem;flex-shrink:0}
+    .sess-info{flex:1;min-width:0}
+    .sess-name{font-weight:700;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sess-meta{font-size:.78rem;color:var(--mut);margin-top:3px}
+    .sess-actions{display:flex;gap:8px;flex-shrink:0}
+
+    .empty{background:var(--s1);border-radius:var(--r);padding:32px;text-align:center;color:var(--mut);font-size:.9rem}
+    .err{background:#2a1520;border:1px solid var(--pnk);border-radius:10px;padding:12px 14px;font-size:.85rem;color:var(--pnk)}
+    .loading{color:var(--mut);font-size:.9rem;padding:20px 0;text-align:center}
+    .badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:700;background:rgba(61,220,132,.12);color:var(--grn)}
+
+    #auth-section{display:flex;flex-direction:column;gap:20px}
+    #main-section{display:none;flex-direction:column;gap:20px}
+  </style>
+</head>
+<body>
+
+<div>
+  <h1>🎭 Head Capture — Admin</h1>
+  <p class="sub">Přehled nahraných projektů</p>
+</div>
+
+<!-- Auth -->
+<div id="auth-section">
+  <div class="auth-card">
+    <label>Admin heslo</label>
+    <input type="password" id="secret-input" placeholder="Zadej UPLOAD_SECRET / ADMIN_SECRET" autocomplete="current-password"/>
+    <button class="btn btn-primary" onclick="login()">Přihlásit →</button>
+  </div>
+  <div class="err" id="auth-err" style="display:none"></div>
+</div>
+
+<!-- Main -->
+<div id="main-section">
+  <div class="toolbar">
+    <h2>Projekty v R2 <span class="badge" id="count-badge">0</span></h2>
+    <button class="btn btn-ref btn-sm" onclick="loadSessions()">↺ Obnovit</button>
+  </div>
+  <div id="sessions-wrap">
+    <div class="loading" id="loading">Načítám…</div>
+    <div class="sessions" id="sessions-list"></div>
+    <div class="empty" id="empty" style="display:none">Žádné dokončené projekty v R2.</div>
+    <div class="err" id="list-err" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+let SECRET = sessionStorage.getItem('hc_admin_secret') || '';
+
+// Auto-login if secret stored
+if (SECRET) tryLogin(SECRET);
+
+async function login() {
+  const val = document.getElementById('secret-input').value.trim();
+  if (!val) return;
+  SECRET = val;
+  await tryLogin(SECRET);
+}
+
+async function tryLogin(secret) {
+  document.getElementById('auth-err').style.display = 'none';
+  try {
+    const res = await fetch(`/admin/sessions?secret=${encodeURIComponent(secret)}`);
+    if (res.status === 401) { showAuthErr('Špatné heslo.'); return; }
+    const data = await res.json();
+    sessionStorage.setItem('hc_admin_secret', secret);
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('main-section').style.display = 'flex';
+    renderSessions(data);
+  } catch (e) {
+    showAuthErr('Chyba připojení: ' + e.message);
+  }
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.style.display = 'block';
+  el.textContent = '❌ ' + msg;
+}
+
+async function loadSessions() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('sessions-list').innerHTML = '';
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('list-err').style.display = 'none';
+  try {
+    const res  = await fetch(`/admin/sessions?secret=${encodeURIComponent(SECRET)}`);
+    const data = await res.json();
+    renderSessions(data);
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    const el = document.getElementById('list-err');
+    el.style.display = 'block';
+    el.textContent = '❌ ' + e.message;
+  }
+}
+
+function renderSessions(sessions) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('count-badge').textContent = sessions.length;
+  const list = document.getElementById('sessions-list');
+  list.innerHTML = '';
+
+  if (!sessions.length) {
+    document.getElementById('empty').style.display = 'block';
+    return;
+  }
+
+  sessions.forEach(s => {
+    const date = new Date(s.lastModified);
+    const dateStr = date.toLocaleString('cs-CZ', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+    const card = document.createElement('div');
+    card.className = 'sess-card';
+    card.innerHTML = `
+      <div class="sess-icon">📦</div>
+      <div class="sess-info">
+        <div class="sess-name">${escHtml(s.name)}</div>
+        <div class="sess-meta">${dateStr} &nbsp;·&nbsp; ${s.sizeMB} MB ZIP</div>
+      </div>
+      <div class="sess-actions">
+        <a class="btn btn-dl btn-sm" href="${escHtml(s.downloadUrl)}" download="${escHtml(s.name)}_frames.zip">⬇ Stáhnout</a>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('secret-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+</script>
+</body>
+</html>

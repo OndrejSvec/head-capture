@@ -9,7 +9,7 @@ const archiver = require('archiver');
 const { execFile } = require('child_process');
 const QRCode   = require('qrcode');
 
-const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const app  = express();
@@ -169,11 +169,49 @@ async function processR2Video(session, key, fps, videoNum) {
     console.log(`✅ [${session.slice(0,8)}] v${videoNum}: ${frames} snímků`);
 
     await r2.send(new DeleteObjectCommand({ Bucket: r2cfg.bucketName, Key: key }));
+    await maybeUploadZipToR2(session, sessionDir);
     try { fs.unlinkSync(videoPath); } catch {}
   } catch (e) {
     console.error(`❌ v${videoNum}:`, e.message);
     setVJob(session, v, { status: 'error', error: e.message });
   }
+}
+
+// ── ZIP → R2 (po dokončení všech 3 videí) ────────────────────────────────────
+async function maybeUploadZipToR2(session, sessionDir) {
+  if (!r2) return;
+  const j = jobs[session];
+  if (!j) return;
+  const allDone = ['v1','v2','v3'].every(v => j[v]?.status === 'done');
+  if (!allDone) return;
+
+  const allFrames = fs.readdirSync(sessionDir).filter(f => /frame_\d+\.jpg$/.test(f)).sort();
+  if (!allFrames.length) return;
+
+  const zipKey  = `sessions/${session}/frames.zip`;
+  const zipPath = path.join(sessionDir, '_upload.zip');
+
+  await new Promise((resolve, reject) => {
+    const archive = archiver('zip', { zlib: { level: 1 } });
+    const ws = fs.createWriteStream(zipPath);
+    archive.pipe(ws);
+    allFrames.forEach(f => archive.file(path.join(sessionDir, f), { name: f }));
+    archive.finalize();
+    ws.on('finish', resolve);
+    ws.on('error', reject);
+    archive.on('error', reject);
+  });
+
+  await r2.send(new PutObjectCommand({
+    Bucket: r2cfg.bucketName,
+    Key: zipKey,
+    Body: fs.createReadStream(zipPath),
+    ContentType: 'application/zip',
+    Metadata: { session, frames: String(allFrames.length) },
+  }));
+
+  try { fs.unlinkSync(zipPath); } catch {}
+  console.log(`☁️  ZIP → R2: ${zipKey} (${allFrames.length} snímků)`);
 }
 
 function streamToFile(stream, dest) {
@@ -226,6 +264,7 @@ app.post('/upload/assemble', requireSecret, async (req, res) => {
     setVJob(session, v, { status: 'done', frames });
     try { fs.unlinkSync(videoPath); } catch {}
     const total = ['v1','v2','v3'].reduce((s,k) => s + (jobs[session]?.[k]?.frames||0), 0);
+    maybeUploadZipToR2(session, sessionDir).catch(e => console.error('ZIP upload chyba:', e.message));
     res.json({ session, frames, totalFrames: total });
   });
 });
@@ -280,6 +319,33 @@ function cleanupOldSessions() {
 // Spusť cleanup každou hodinu
 setInterval(cleanupOldSessions, 60 * 60 * 1000);
 cleanupOldSessions(); // Spusť hned při startu
+
+// ── Admin API ─────────────────────────────────────────────────────────────────
+const ADMIN_SECRET = process.env.ADMIN_SECRET || UPLOAD_SECRET;
+
+function requireAdmin(req, res, next) {
+  if (!ADMIN_SECRET) return next();
+  const token = req.query.secret || req.headers['x-admin-secret'];
+  if (token !== ADMIN_SECRET) return res.status(401).json({ error: 'Neplatný admin kód' });
+  next();
+}
+
+// Seznam všech sessions v R2 (kde existuje frames.zip)
+app.get('/admin/sessions', requireAdmin, async (req, res) => {
+  if (!r2) return res.status(503).json({ error: 'R2 není nakonfigurován' });
+  try {
+    const listed = await r2.send(new ListObjectsV2Command({ Bucket: r2cfg.bucketName, Prefix: 'sessions/' }));
+    const sessions = [];
+    for (const obj of (listed.Contents || [])) {
+      if (!obj.Key.endsWith('/frames.zip')) continue;
+      const name = obj.Key.split('/')[1];
+      const url  = await getSignedUrl(r2, new GetObjectCommand({ Bucket: r2cfg.bucketName, Key: obj.Key }), { expiresIn: 3600 });
+      sessions.push({ name, sizeMB: (obj.Size / 1024 / 1024).toFixed(1), lastModified: obj.LastModified, downloadUrl: url });
+    }
+    sessions.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+    res.json(sessions);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
