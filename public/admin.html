@@ -179,10 +179,10 @@ async function reprocess() {
   msg.style.color = 'var(--mut)';
   msg.textContent = '⏳ Spouštím zpracování…';
   try {
-    const res  = await fetch('/admin/reprocess', {
+    const res  = await fetch(`/admin/reprocess?secret=${encodeURIComponent(SECRET)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session, secret: SECRET, fps: '1' }),
+      body: JSON.stringify({ session, fps: '1' }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
