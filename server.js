@@ -152,17 +152,69 @@ app.post('/photo/upload', requireSecret, photoUpload.single('photo'), (req, res)
   res.json({ ok: true });
 });
 
-// ── Photo: mark session complete ──────────────────────────────────────────────
+// ── Photo: mark session complete + spusť ZIP na pozadí ───────────────────────
 app.post('/photo/complete', requireSecret, (req, res) => {
-  const { session, counts } = req.body; // counts: [n1, n2, n3]
+  const { session, counts } = req.body;
   if (!session) return res.status(400).json({ error: 'Chybí session' });
   initJob(session);
   jobs[session].mode = 'photo';
   const c = Array.isArray(counts) ? counts : [0, 0, 0];
   ['v1', 'v2', 'v3'].forEach((v, i) => setVJob(session, v, { status: 'done', frames: c[i] || 0 }));
-  console.log(`📷 [${session.slice(0,12)}] foto session: ${c.reduce((a,b)=>a+b,0)} fotek`);
+  const total = c.reduce((a, b) => a + b, 0);
+  console.log(`📷 [${session.slice(0,12)}] foto session: ${total} fotek — spouštím ZIP`);
+  if (r2) createPhotoZipFromR2(session).catch(e => console.error('Photo ZIP chyba:', e.message));
   res.json({ ok: true });
 });
+
+// Stáhne fotky z R2 po dávkách, sestaví ZIP, nahraje zpět jako frames.zip
+async function createPhotoZipFromR2(session) {
+  const listed = await r2.send(new ListObjectsV2Command({
+    Bucket: r2cfg.bucketName, Prefix: `sessions/${session}/photos/`,
+  }));
+  const photos = (listed.Contents || []).sort((a, b) => a.Key.localeCompare(b.Key));
+  if (!photos.length) return;
+
+  // Stáhni po 5 paralelně
+  const BATCH = 5;
+  const buffers = [];
+  for (let i = 0; i < photos.length; i += BATCH) {
+    const batch = photos.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async obj => {
+      const name = obj.Key.split('/').pop();
+      const data = await r2.send(new GetObjectCommand({ Bucket: r2cfg.bucketName, Key: obj.Key }));
+      const chunks = [];
+      for await (const chunk of data.Body) chunks.push(chunk);
+      return { name, buffer: Buffer.concat(chunks) };
+    }));
+    buffers.push(...results);
+  }
+
+  // Sestav ZIP do dočasného souboru
+  const sessionDir = getSessionDir(session);
+  const zipPath    = path.join(sessionDir, '_photos_upload.zip');
+  await new Promise((resolve, reject) => {
+    const archive = archiver('zip', { zlib: { level: 1 } });
+    const ws = fs.createWriteStream(zipPath);
+    archive.pipe(ws);
+    buffers.forEach(({ name, buffer }) => archive.append(buffer, { name }));
+    archive.finalize();
+    ws.on('finish', resolve);
+    ws.on('error', reject);
+    archive.on('error', reject);
+  });
+
+  // Nahraj ZIP do R2 jako frames.zip
+  const zipKey = `sessions/${session}/frames.zip`;
+  await r2.send(new PutObjectCommand({
+    Bucket: r2cfg.bucketName,
+    Key: zipKey,
+    Body: fs.createReadStream(zipPath),
+    ContentType: 'application/zip',
+    Metadata: { session, photoCount: String(buffers.length) },
+  }));
+  try { fs.unlinkSync(zipPath); } catch {}
+  console.log(`☁️  Photo ZIP → R2: ${zipKey} (${buffers.length} fotek)`);
+}
 
 // ── R2 presigned PUT ──────────────────────────────────────────────────────────
 app.get('/r2/presign', requireSecret, async (req, res) => {
