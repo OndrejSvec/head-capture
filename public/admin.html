@@ -150,18 +150,23 @@ function renderSessions(sessions) {
   sessions.forEach(s => {
     const date = new Date(s.lastModified);
     const dateStr = date.toLocaleString('cs-CZ', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const isPhoto = s.type === 'photo';
+    const meta = isPhoto
+      ? `${dateStr} &nbsp;·&nbsp; 📷 ${s.photoCount} fotek`
+      : `${dateStr} &nbsp;·&nbsp; 🎞 ${s.sizeMB} MB ZIP`;
+    const dlBtn = isPhoto
+      ? `<a class="btn btn-dl btn-sm" href="/admin/download-photos/${escHtml(s.name)}?secret=${encodeURIComponent(SECRET)}" download="${escHtml(s.name)}_photos.zip">⬇ Stáhnout</a>`
+      : `<a class="btn btn-dl btn-sm" href="${escHtml(s.downloadUrl)}" download="${escHtml(s.name)}_frames.zip">⬇ Stáhnout</a>`;
 
     const card = document.createElement('div');
     card.className = 'sess-card';
     card.innerHTML = `
-      <div class="sess-icon">📦</div>
+      <div class="sess-icon">${isPhoto ? '📷' : '📦'}</div>
       <div class="sess-info">
         <div class="sess-name">${escHtml(s.name)}</div>
-        <div class="sess-meta">${dateStr} &nbsp;·&nbsp; ${s.sizeMB} MB ZIP</div>
+        <div class="sess-meta">${meta}</div>
       </div>
-      <div class="sess-actions">
-        <a class="btn btn-dl btn-sm" href="${escHtml(s.downloadUrl)}" download="${escHtml(s.name)}_frames.zip">⬇ Stáhnout</a>
-      </div>
+      <div class="sess-actions">${dlBtn}</div>
     `;
     list.appendChild(card);
   });

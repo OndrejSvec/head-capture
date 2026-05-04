@@ -127,6 +127,43 @@ app.get('/qr', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Photo: presigned PUT per photo ───────────────────────────────────────────
+app.get('/photo/presign', requireSecret, async (req, res) => {
+  if (!r2) return res.status(503).json({ error: 'R2 není nakonfigurován' });
+  const { session, set, index } = req.query;
+  if (!session || !set || index === undefined) return res.status(400).json({ error: 'Chybí parametry' });
+  const key = `sessions/${session}/photos/s${set}_p${String(index).padStart(3,'0')}.jpg`;
+  try {
+    const url = await getSignedUrl(r2, new PutObjectCommand({
+      Bucket: r2cfg.bucketName, Key: key,
+    }), { expiresIn: 3600 });
+    res.json({ url, key });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Photo: local upload fallback (no R2) ─────────────────────────────────────
+const photoUpload = multer({ dest: CHUNKS_DIR });
+app.post('/photo/upload', requireSecret, photoUpload.single('photo'), (req, res) => {
+  const { session, set, index } = req.body;
+  if (!req.file || !session) return res.status(400).json({ error: 'Chybí data' });
+  const dir  = getSessionDir(session);
+  const dest = path.join(dir, `s${set}_p${String(index).padStart(3,'0')}.jpg`);
+  fs.renameSync(req.file.path, dest);
+  res.json({ ok: true });
+});
+
+// ── Photo: mark session complete ──────────────────────────────────────────────
+app.post('/photo/complete', requireSecret, (req, res) => {
+  const { session, counts } = req.body; // counts: [n1, n2, n3]
+  if (!session) return res.status(400).json({ error: 'Chybí session' });
+  initJob(session);
+  jobs[session].mode = 'photo';
+  const c = Array.isArray(counts) ? counts : [0, 0, 0];
+  ['v1', 'v2', 'v3'].forEach((v, i) => setVJob(session, v, { status: 'done', frames: c[i] || 0 }));
+  console.log(`📷 [${session.slice(0,12)}] foto session: ${c.reduce((a,b)=>a+b,0)} fotek`);
+  res.json({ ok: true });
+});
+
 // ── R2 presigned PUT ──────────────────────────────────────────────────────────
 app.get('/r2/presign', requireSecret, async (req, res) => {
   if (!r2) return res.status(503).json({ error: 'R2 není nakonfigurován' });
@@ -331,20 +368,65 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Seznam všech sessions v R2 (kde existuje frames.zip)
+// Seznam všech sessions v R2 (ZIP video sessions + foto sessions)
 app.get('/admin/sessions', requireAdmin, async (req, res) => {
   if (!r2) return res.status(503).json({ error: 'R2 není nakonfigurován' });
   try {
     const listed = await r2.send(new ListObjectsV2Command({ Bucket: r2cfg.bucketName, Prefix: 'sessions/' }));
-    const sessions = [];
+    const bySession = {};
     for (const obj of (listed.Contents || [])) {
-      if (!obj.Key.endsWith('/frames.zip')) continue;
-      const name = obj.Key.split('/')[1];
-      const url  = await getSignedUrl(r2, new GetObjectCommand({ Bucket: r2cfg.bucketName, Key: obj.Key }), { expiresIn: 3600 });
-      sessions.push({ name, sizeMB: (obj.Size / 1024 / 1024).toFixed(1), lastModified: obj.LastModified, downloadUrl: url });
+      const parts = obj.Key.split('/');
+      if (parts.length < 3) continue;
+      const name = parts[1];
+      if (!bySession[name]) bySession[name] = { name, type: null, photoCount: 0, sizeMB: null, lastModified: obj.LastModified };
+      if (new Date(obj.LastModified) > new Date(bySession[name].lastModified)) bySession[name].lastModified = obj.LastModified;
+      if (obj.Key.endsWith('/frames.zip')) {
+        bySession[name].type = 'video';
+        bySession[name].sizeMB = (obj.Size / 1024 / 1024).toFixed(1);
+        bySession[name].zipKey = obj.Key;
+      } else if (parts[2] === 'photos' && obj.Key.endsWith('.jpg')) {
+        bySession[name].type = bySession[name].type || 'photo';
+        bySession[name].photoCount++;
+      }
+    }
+    const sessions = [];
+    for (const s of Object.values(bySession)) {
+      if (!s.type) continue;
+      const entry = { name: s.name, type: s.type, lastModified: s.lastModified };
+      if (s.type === 'video') {
+        entry.sizeMB = s.sizeMB;
+        entry.downloadUrl = await getSignedUrl(r2, new GetObjectCommand({ Bucket: r2cfg.bucketName, Key: s.zipKey }), { expiresIn: 3600 });
+      } else {
+        entry.photoCount = s.photoCount;
+      }
+      sessions.push(entry);
     }
     sessions.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
     res.json(sessions);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: download photos ZIP straight from R2 ───────────────────────────────
+app.get('/admin/download-photos/:session', requireAdmin, async (req, res) => {
+  if (!r2) return res.status(503).json({ error: 'R2 není nakonfigurován' });
+  const session = req.params.session;
+  try {
+    const listed = await r2.send(new ListObjectsV2Command({
+      Bucket: r2cfg.bucketName, Prefix: `sessions/${session}/photos/`,
+    }));
+    const photos = (listed.Contents || []).sort((a, b) => a.Key.localeCompare(b.Key));
+    if (!photos.length) return res.status(404).json({ error: 'Žádné fotky' });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${session.slice(0,20)}_photos.zip"`);
+    const archive = archiver('zip', { zlib: { level: 1 } });
+    archive.pipe(res);
+    for (const obj of photos) {
+      const name = obj.Key.split('/').pop();
+      const data = await r2.send(new GetObjectCommand({ Bucket: r2cfg.bucketName, Key: obj.Key }));
+      archive.append(data.Body, { name });
+    }
+    archive.finalize();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
