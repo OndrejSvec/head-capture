@@ -347,6 +347,43 @@ app.get('/admin/sessions', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Admin: reprocess videos already in R2 ────────────────────────────────────
+app.post('/admin/reprocess', requireAdmin, async (req, res) => {
+  const { session, fps = '1' } = req.body;
+  if (!session) return res.status(400).json({ error: 'Chybí session' });
+  if (!r2)      return res.status(503).json({ error: 'R2 není nakonfigurován' });
+
+  try {
+    const listed = await r2.send(new ListObjectsV2Command({
+      Bucket: r2cfg.bucketName,
+      Prefix: `sessions/${session}/`,
+    }));
+
+    // Najdi video soubory (ne frames.zip, ne frame_*.jpg)
+    const videos = (listed.Contents || []).filter(obj => {
+      const name = obj.Key.split('/').pop();
+      return !name.endsWith('frames.zip') && !name.includes('_frame_') && !name.startsWith('_');
+    });
+
+    if (!videos.length) return res.status(404).json({ error: 'Žádná videa nenalezena v R2 pro tuto session' });
+
+    initJob(session);
+    let started = 0;
+    for (const obj of videos) {
+      const fname = obj.Key.split('/').pop();
+      const m = fname.match(/^v(\d+)_/);
+      if (!m) continue;
+      const videoNum = m[1];
+      setVJob(session, `v${videoNum}`, { status: 'downloading', frames: 0, error: null });
+      processR2Video(session, obj.Key, fps, videoNum);
+      started++;
+    }
+    res.json({ ok: true, started, session });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   const isCloud = !!(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.APP_URL);

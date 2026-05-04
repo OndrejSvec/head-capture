@@ -639,11 +639,15 @@ async function uploadR2(n, f, session, fps) {
   });
 
   setProg(n, 90, 'Spouštím zpracování…', '');
-  await fetch('/r2/process', {
+  const procRes = await fetch('/r2/process', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session, key, fps, videoNum: n, secret: URL_SECRET }),
   });
+  if (!procRes.ok) {
+    const d = await procRes.json().catch(() => ({}));
+    throw new Error(`Server odmítl zpracování: ${d.error || procRes.status}`);
+  }
   setProg(n, 100, '✅ Hotovo!', 'Snímky se zpracovávají…');
 }
 

@@ -60,6 +60,16 @@
   <div class="err" id="auth-err" style="display:none"></div>
 </div>
 
+<!-- Reprocess panel (zobrazí se po přihlášení) -->
+<div id="reproc-section" class="auth-card" style="display:none;flex-direction:column;gap:10px">
+  <label>🔁 Znovu zpracovat session z R2 — zadej název projektu</label>
+  <div style="display:flex;gap:8px">
+    <input type="text" id="reproc-session" placeholder="hlava_01" style="flex:1"/>
+    <button class="btn btn-primary btn-sm" onclick="reprocess()" style="white-space:nowrap">▶ Spustit</button>
+  </div>
+  <div id="reproc-msg" style="font-size:.82rem;color:var(--mut);display:none"></div>
+</div>
+
 <!-- Main -->
 <div id="main-section">
   <div class="toolbar">
@@ -95,6 +105,7 @@ async function tryLogin(secret) {
     const data = await res.json();
     sessionStorage.setItem('hc_admin_secret', secret);
     document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('reproc-section').style.display = 'flex';
     document.getElementById('main-section').style.display = 'flex';
     renderSessions(data);
   } catch (e) {
@@ -158,6 +169,30 @@ function renderSessions(sessions) {
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function reprocess() {
+  const session = document.getElementById('reproc-session').value.trim();
+  if (!session) return;
+  const msg = document.getElementById('reproc-msg');
+  msg.style.display = 'block';
+  msg.style.color = 'var(--mut)';
+  msg.textContent = '⏳ Spouštím zpracování…';
+  try {
+    const res  = await fetch('/admin/reprocess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session, secret: SECRET, fps: '1' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    msg.style.color = 'var(--grn)';
+    msg.textContent = `✅ Spuštěno ${data.started} video(í) — za chvíli obnoví seznam`;
+    setTimeout(loadSessions, 8000);
+  } catch (e) {
+    msg.style.color = 'var(--pnk)';
+    msg.textContent = '❌ ' + e.message;
+  }
 }
 
 document.getElementById('secret-input').addEventListener('keydown', e => {
