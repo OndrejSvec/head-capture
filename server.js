@@ -325,7 +325,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET || UPLOAD_SECRET;
 
 function requireAdmin(req, res, next) {
   if (!ADMIN_SECRET) return next();
-  const token = req.query.secret || req.headers['x-admin-secret'];
+  const token = req.query.secret || req.body?.secret || req.headers['x-admin-secret'];
   if (token !== ADMIN_SECRET) return res.status(401).json({ error: 'Neplatný admin kód' });
   next();
 }
