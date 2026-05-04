@@ -6,7 +6,8 @@ const fs       = require('fs');
 const os       = require('os');
 const crypto   = require('crypto');
 const archiver = require('archiver');
-const { execFile } = require('child_process');
+const { execFile }  = require('child_process');
+const ffmpegPath    = require('ffmpeg-static');
 const QRCode   = require('qrcode');
 
 const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
@@ -225,7 +226,7 @@ function streamToFile(stream, dest) {
 
 function extractFrames(videoPath, pattern, fps) {
   return new Promise((resolve, reject) => {
-    execFile('ffmpeg', ['-i', videoPath, '-vf', `fps=${fps}`, '-q:v', '2', pattern], err => err ? reject(err) : resolve());
+    execFile(ffmpegPath, ['-i', videoPath, '-vf', `fps=${fps}`, '-q:v', '2', pattern], err => err ? reject(err) : resolve());
   });
 }
 
@@ -258,7 +259,7 @@ app.post('/upload/assemble', requireSecret, async (req, res) => {
   setVJob(session, v, { status: 'extracting', frames: 0, error: null });
 
   const pattern = path.join(sessionDir, `v${videoNum}_frame_%04d.jpg`);
-  execFile('ffmpeg', ['-i', videoPath, '-vf', `fps=${fps}`, '-q:v', '2', pattern], (err) => {
+  execFile(ffmpegPath, ['-i', videoPath, '-vf', `fps=${fps}`, '-q:v', '2', pattern], (err) => {
     if (err) { setVJob(session, v, { status: 'error', error: err.message }); return res.status(500).json({ error: 'ffmpeg selhal' }); }
     const frames = fs.readdirSync(sessionDir).filter(f => f.startsWith(`v${videoNum}_frame_`)).length;
     setVJob(session, v, { status: 'done', frames });
