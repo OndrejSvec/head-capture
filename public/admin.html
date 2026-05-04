@@ -60,14 +60,24 @@
   <div class="err" id="auth-err" style="display:none"></div>
 </div>
 
-<!-- Reprocess panel (zobrazí se po přihlášení) -->
-<div id="reproc-section" class="auth-card" style="display:none;flex-direction:column;gap:10px">
-  <label>🔁 Znovu zpracovat session z R2 — zadej název projektu</label>
-  <div style="display:flex;gap:8px">
-    <input type="text" id="reproc-session" placeholder="hlava_01" style="flex:1"/>
-    <button class="btn btn-primary btn-sm" onclick="reprocess()" style="white-space:nowrap">▶ Spustit</button>
+<!-- Reprocess / Rezip panel -->
+<div id="reproc-section" class="auth-card" style="display:none;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <label>🔁 Znovu zpracovat video session z R2</label>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="reproc-session" placeholder="hlava_01" style="flex:1"/>
+      <button class="btn btn-primary btn-sm" onclick="reprocess()" style="white-space:nowrap">▶ Spustit</button>
+    </div>
+    <div id="reproc-msg" style="font-size:.82rem;color:var(--mut);display:none"></div>
   </div>
-  <div id="reproc-msg" style="font-size:.82rem;color:var(--mut);display:none"></div>
+  <div style="border-top:1px solid #222;padding-top:14px;display:flex;flex-direction:column;gap:8px">
+    <label>📷 Vytvořit ZIP z foto session (fotky jsou v R2, chybí ZIP)</label>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="rezip-session" placeholder="hlava_ondra_2" style="flex:1"/>
+      <button class="btn btn-primary btn-sm" onclick="rezipPhotos()" style="white-space:nowrap">▶ Vytvořit ZIP</button>
+    </div>
+    <div id="rezip-msg" style="font-size:.82rem;color:var(--mut);display:none"></div>
+  </div>
 </div>
 
 <!-- Main -->
@@ -194,6 +204,30 @@ async function reprocess() {
     msg.style.color = 'var(--grn)';
     msg.textContent = `✅ Spuštěno ${data.started} video(í) — za chvíli obnoví seznam`;
     setTimeout(loadSessions, 8000);
+  } catch (e) {
+    msg.style.color = 'var(--pnk)';
+    msg.textContent = '❌ ' + e.message;
+  }
+}
+
+async function rezipPhotos() {
+  const session = document.getElementById('rezip-session').value.trim();
+  if (!session) return;
+  const msg = document.getElementById('rezip-msg');
+  msg.style.display = 'block';
+  msg.style.color = 'var(--mut)';
+  msg.textContent = '⏳ Spouštím tvorbu ZIP…';
+  try {
+    const res  = await fetch(`/admin/rezip-photos?secret=${encodeURIComponent(SECRET)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    msg.style.color = 'var(--grn)';
+    msg.textContent = `✅ ${data.message} (${data.photoCount} fotek) — pak klikni Obnovit`;
+    setTimeout(loadSessions, 35000); // auto-refresh po 35s
   } catch (e) {
     msg.style.color = 'var(--pnk)';
     msg.textContent = '❌ ' + e.message;

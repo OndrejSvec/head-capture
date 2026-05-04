@@ -482,6 +482,22 @@ app.get('/admin/download-photos/:session', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Admin: ručně spusť ZIP z fotek v R2 ──────────────────────────────────────
+app.post('/admin/rezip-photos', requireAdmin, async (req, res) => {
+  const { session } = req.body;
+  if (!session) return res.status(400).json({ error: 'Chybí session' });
+  if (!r2)      return res.status(503).json({ error: 'R2 není nakonfigurován' });
+  // Zkontroluj jestli tam jsou fotky
+  const listed = await r2.send(new ListObjectsV2Command({
+    Bucket: r2cfg.bucketName, Prefix: `sessions/${session}/photos/`,
+  }));
+  const count = (listed.Contents || []).filter(o => o.Key.endsWith('.jpg')).length;
+  if (!count) return res.status(404).json({ error: `Žádné fotky pod sessions/${session}/photos/` });
+  // Spusť na pozadí
+  res.json({ ok: true, photoCount: count, message: 'ZIP se vytváří na pozadí (~30s)' });
+  createPhotoZipFromR2(session).catch(e => console.error('Rezip chyba:', e.message));
+});
+
 // ── Admin: reprocess videos already in R2 ────────────────────────────────────
 app.post('/admin/reprocess', requireAdmin, async (req, res) => {
   const { session, fps = '1' } = req.body;
