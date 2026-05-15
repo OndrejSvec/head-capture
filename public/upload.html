@@ -3,570 +3,622 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Fotografovat — Head Capture</title>
+  <title>Head Capture — Fotografovat</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --bg:#0d0d0f;--s1:#1a1a1f;--s2:#242429;
-      --acc:#6c63ff;--grn:#3ddc84;--pnk:#ff6584;--org:#ffb347;
-      --txt:#f0f0f5;--mut:#8888a0;--r:16px;
+      --bg:#09090c;--card:#131318;--card2:#1c1c24;
+      --acc:#6c63ff;--grn:#3ddc84;--pnk:#ff6584;--org:#ffb347;--yel:#f9e55a;
+      --txt:#f0f0f5;--mut:#6e6e90;
+      --r:20px;
     }
-    body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;padding:20px 16px 56px;display:flex;flex-direction:column;gap:16px;max-width:480px;margin:0 auto}
-    h1{font-size:1.5rem;font-weight:800}
-    .sub{color:var(--mut);font-size:.88rem}
-    .field{display:flex;flex-direction:column;gap:5px}
-    label{font-size:.78rem;color:var(--mut)}
-    input[type=text]{background:var(--s1);border:1px solid #333;border-radius:10px;padding:11px 14px;color:var(--txt);font-size:.95rem;width:100%;outline:none}
+    html,body{height:100%}
+    body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:460px;margin:0 auto;display:flex;flex-direction:column}
+
+    /* ── App bar ── */
+    .app-bar{padding:18px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .app-logo{font-size:.9rem;font-weight:700;color:var(--mut);letter-spacing:.5px}
+    .step-dots{display:flex;gap:6px;align-items:center}
+    .sdot{width:8px;height:8px;border-radius:50%;background:#2a2a38;transition:all .35s cubic-bezier(.4,0,.2,1)}
+    .sdot.done{background:var(--grn)}
+    .sdot.active{width:26px;border-radius:5px;background:var(--acc)}
+
+    /* ── Scroll area ── */
+    .scroll{flex:1;overflow-y:auto;padding:16px 16px 52px;display:flex;flex-direction:column;gap:14px}
 
     /* ── Quality card ── */
-    .quality-card{background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(108,99,255,.35);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
-    .quality-title{font-size:.9rem;font-weight:700;color:var(--acc)}
-    .quality-row{display:flex;gap:10px;align-items:flex-start}
-    .quality-icon{font-size:1.1rem;flex-shrink:0}
-    .quality-text{font-size:.82rem;color:var(--mut);line-height:1.45}
-    .quality-text strong{color:var(--txt)}
-    .quality-impact{background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);border-radius:8px;padding:8px 12px;font-size:.8rem;color:var(--org);line-height:1.4}
+    .tips-card{background:linear-gradient(135deg,#12122a 0%,#1a1a32 100%);border:1px solid rgba(108,99,255,.22);border-radius:var(--r);overflow:hidden}
+    .tips-toggle{padding:15px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+    .tips-toggle-icon{font-size:1.1rem}
+    .tips-toggle-text{flex:1;font-size:.88rem;font-weight:700;color:var(--acc)}
+    .tips-chev{color:var(--mut);font-size:.75rem;transition:transform .22s}
+    .tips-chev.open{transform:rotate(180deg)}
+    .tips-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px}
+    .tips-grid.hidden{display:none}
+    .tip{background:rgba(255,255,255,.04);border-radius:14px;padding:13px;display:flex;flex-direction:column;gap:6px}
+    .tip-ic{font-size:1.35rem}
+    .tip-h{font-size:.8rem;font-weight:700;color:var(--txt)}
+    .tip-p{font-size:.74rem;color:var(--mut);line-height:1.45}
+    .tips-warn{margin:0 16px 16px;background:rgba(249,229,90,.07);border:1px solid rgba(249,229,90,.22);border-radius:12px;padding:11px 14px;font-size:.8rem;color:var(--yel);line-height:1.5}
 
-    /* ── Set card ── */
-    .set-card{background:var(--s1);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;transition:opacity .3s}
-    .set-card.locked{opacity:.38;pointer-events:none}
-    .set-header{display:flex;align-items:center;gap:12px}
-    .set-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;flex-shrink:0}
-    .set-num.n1{background:var(--grn);color:#000}
-    .set-num.n2{background:var(--acc);color:#fff}
-    .set-num.n3{background:var(--pnk);color:#fff}
-    .set-title{font-weight:700;font-size:1rem}
-    .set-sub{font-size:.8rem;color:var(--mut);margin-top:2px}
-    .set-pill{margin-left:auto;border-radius:20px;padding:4px 12px;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0}
-    .pill-idle{background:#222;color:var(--mut)}
-    .pill-prog{background:rgba(108,99,255,.15);color:var(--acc)}
-    .pill-done{background:rgba(61,220,132,.15);color:var(--grn)}
+    /* ── Main step card ── */
+    .step-card{background:var(--card);border-radius:var(--r);overflow:hidden}
 
-    /* ── Elevation hint ── */
-    .elev-hint{background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.2);border-radius:10px;padding:10px 14px;font-size:.82rem;color:var(--mut);line-height:1.5}
+    /* Position header */
+    .step-head{padding:20px 20px 0;display:flex;align-items:center;gap:14px}
+    .pos-num{width:46px;height:46px;border-radius:14px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .pos-n1{background:rgba(61,220,132,.14)}
+    .pos-n2{background:rgba(108,99,255,.14)}
+    .pos-n3{background:rgba(255,179,71,.14)}
+    .pos-n4{background:rgba(255,101,132,.14)}
+    .pos-name{font-size:1.4rem;font-weight:800;letter-spacing:-.4px}
+    .pos-meta{font-size:.78rem;color:var(--mut);margin-top:3px}
 
-    /* ── Position ring ── */
-    .ring-wrap{background:var(--s2);border-radius:14px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
-    .ring-wrap svg{width:170px;height:170px;display:block}
-    .ring-instr{font-size:.85rem;color:var(--txt);text-align:center;line-height:1.45;min-height:2.6em}
+    /* Top-down map */
+    .map-wrap{padding:18px 20px 4px;display:flex;justify-content:center}
+    .map-wrap svg{width:210px;height:210px;display:block}
 
-    /* ── Camera preview ── */
-    .preview-wrap{position:relative;border-radius:12px;overflow:hidden;background:#111;width:100%;display:none}
-    .preview-wrap video{width:100%;max-height:280px;object-fit:cover;display:block}
-    .flash-el{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s}
-    .countdown-el{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:5rem;font-weight:900;color:#fff;text-shadow:0 0 30px rgba(0,0,0,.9);background:rgba(0,0,0,.25)}
+    /* Instruction */
+    .step-instr{margin:0 16px;background:var(--card2);border-radius:14px;padding:14px 16px;font-size:.88rem;line-height:1.6;color:var(--txt)}
+    .step-instr .sub{margin-top:5px;font-size:.78rem;color:var(--mut)}
 
-    /* ── Buttons ── */
-    .btn-row{display:flex;gap:8px}
-    .btn-start{background:var(--acc);color:#fff;border:none;border-radius:12px;padding:15px;font-size:.95rem;font-weight:700;cursor:pointer;flex:1;transition:opacity .2s,transform .1s}
-    .btn-start:active{transform:scale(.97)}
-    .btn-start:disabled{opacity:.4;cursor:not-allowed;transform:none}
-    .btn-gallery{background:var(--s2);color:var(--txt);border:1px solid #333;border-radius:12px;padding:15px;font-size:.9rem;font-weight:600;cursor:pointer;flex:1}
-    .btn-gallery:active{transform:scale(.97)}
+    /* Camera / preview area */
+    .media-wrap{margin:14px 16px;border-radius:14px;overflow:hidden;position:relative;background:#0d0d12;display:none;aspect-ratio:4/3}
+    .media-wrap video,.media-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+    .countdown-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:7rem;font-weight:900;color:#fff;text-shadow:0 4px 60px rgba(0,0,0,.9);background:rgba(0,0,0,.35);border-radius:0}
+    .flash-overlay{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .14s;border-radius:0}
+    .captured-badge{position:absolute;bottom:10px;right:10px;background:rgba(61,220,132,.88);color:#000;font-size:.75rem;font-weight:800;padding:5px 13px;border-radius:20px;backdrop-filter:blur(4px)}
 
-    /* ── Progress ── */
-    .prog-wrap{display:flex;flex-direction:column;gap:5px;display:none}
-    .prog-hdr{display:flex;justify-content:space-between;font-size:.8rem;color:var(--mut)}
-    .prog-track{height:6px;background:#333;border-radius:4px;overflow:hidden}
-    .prog-fill{height:100%;border-radius:4px;transition:width .3s}
-    .fill-1{background:var(--grn)} .fill-2{background:var(--acc)} .fill-3{background:var(--pnk)}
+    /* Upload progress */
+    .prog-wrap{margin:0 16px;display:none;flex-direction:column;gap:6px}
+    .prog-lbl{font-size:.78rem;color:var(--mut)}
+    .prog-track{height:4px;background:#252532;border-radius:4px;overflow:hidden}
+    .prog-fill{height:100%;background:var(--acc);border-radius:4px;transition:width .35s}
 
-    /* ── Thumbs ── */
-    .thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px}
-    .thumb-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#222}
-    .thumb-uploading{outline:2px solid var(--acc);outline-offset:2px;opacity:.6}
-    .thumb-done{outline:2px solid var(--grn);outline-offset:2px}
+    /* Error */
+    .err-msg{margin:0 16px;display:none;background:#2a1520;border:1px solid var(--pnk);border-radius:12px;padding:12px 14px;font-size:.82rem;color:var(--pnk);line-height:1.5}
 
-    /* ── Error ── */
-    .err-el{background:#2a1520;border:1px solid var(--pnk);border-radius:10px;padding:10px 14px;font-size:.82rem;color:var(--pnk);line-height:1.5;display:none}
+    /* Actions */
+    .actions{padding:14px 16px 20px;display:flex;flex-direction:column;gap:10px}
+    .btn{border:none;border-radius:14px;padding:16px;font-size:.98rem;font-weight:700;cursor:pointer;transition:opacity .18s,transform .1s;width:100%;text-align:center}
+    .btn:active{transform:scale(.97)}
+    .btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+    .btn-primary{background:var(--acc);color:#fff}
+    .btn-success{background:var(--grn);color:#000}
+    .btn-outline{background:transparent;color:var(--txt);border:1.5px solid #2a2a38}
+    .btn-ghost{background:transparent;border:none;color:var(--mut);font-size:.85rem;padding:8px;cursor:pointer;width:100%;text-align:center}
+    .btn-row{display:flex;gap:10px}
+    .btn-row .btn{flex:1}
 
-    /* ── Done ── */
-    .done-card{background:var(--s1);border-radius:var(--r);padding:28px;text-align:center;display:none;flex-direction:column;align-items:center;gap:10px}
-    .done-ico{font-size:3.5rem}
-    .done-ttl{font-size:1.4rem;font-weight:800;color:var(--grn)}
-    .done-det{color:var(--mut);font-size:.88rem;line-height:1.6}
+    /* ── Done screen ── */
+    #screen-done{display:none;flex:1;align-items:center;justify-content:center;padding:40px 24px;flex-direction:column;gap:18px;text-align:center}
+    #screen-done.vis{display:flex}
+    .done-ring{width:88px;height:88px;border-radius:50%;background:rgba(61,220,132,.12);border:2.5px solid var(--grn);display:flex;align-items:center;justify-content:center;font-size:2.8rem}
+    .done-h{font-size:1.55rem;font-weight:800;color:var(--grn)}
+    .done-p{color:var(--mut);font-size:.88rem;line-height:1.7;max-width:290px}
+    .done-detail{background:var(--card);border-radius:16px;padding:16px 20px;width:100%;display:flex;flex-direction:column;gap:8px}
+    .done-row{display:flex;align-items:center;gap:10px;font-size:.84rem}
+    .done-row-ic{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+    .done-row-txt{color:var(--mut)}
+    .done-row-txt strong{color:var(--txt)}
+
+    /* Gallery input */
+    #gal-input{display:none}
   </style>
 </head>
 <body>
 
-<div>
-  <h1>🎭 Head Capture</h1>
-  <p class="sub">Fotografický průvodce — 40 fotek ze 3 úhlů</p>
+<!-- App bar -->
+<div class="app-bar">
+  <div class="app-logo">🎭 HEAD CAPTURE</div>
+  <div class="step-dots">
+    <div class="sdot active" id="dot-1"></div>
+    <div class="sdot" id="dot-2"></div>
+    <div class="sdot" id="dot-3"></div>
+    <div class="sdot" id="dot-4"></div>
+  </div>
 </div>
 
-<div class="quality-card">
-  <div class="quality-title">🏆 Podmínky = kvalita modelu</div>
-  <div class="quality-row"><div class="quality-icon">🧱</div><div class="quality-text"><strong>Jednobarevná světlá stěna</strong> — bílá nebo šedá. Vzory a tmavé pozadí rekonstrukci zničí.</div></div>
-  <div class="quality-row"><div class="quality-icon">☀️</div><div class="quality-text"><strong>Rovnoměrné světlo, žádné stíny</strong> — zastíněné okno nebo venku ve stínu.</div></div>
-  <div class="quality-row"><div class="quality-icon">😐</div><div class="quality-text"><strong>Absolutní nehybnost</strong> — fotografovaný se po celou dobu nesmí hýbat ani mluvit.</div></div>
-  <div class="quality-row"><div class="quality-icon">📏</div><div class="quality-text"><strong>50–80 cm od obličeje</strong> — hlava musí vyplnit většinu záběru.</div></div>
-  <div class="quality-impact">⚡ Bez těchto podmínek 3D model nevznikne.</div>
+<!-- Scroll content -->
+<div class="scroll" id="main-scroll">
+
+  <!-- Quality tips (collapsible) -->
+  <div class="tips-card">
+    <div class="tips-toggle" onclick="toggleTips()">
+      <span class="tips-toggle-icon">🏆</span>
+      <span class="tips-toggle-text">Podmínky pro dokonalý 3D model</span>
+      <span class="tips-chev" id="tips-chev">▼</span>
+    </div>
+    <div class="tips-grid hidden" id="tips-grid">
+      <div class="tip">
+        <div class="tip-ic">🧱</div>
+        <div class="tip-h">Světlé pozadí</div>
+        <div class="tip-p">Bílá nebo šedá zeď. Žádné vzory, tmavé nebo pestré pozadí.</div>
+      </div>
+      <div class="tip">
+        <div class="tip-ic">🌤️</div>
+        <div class="tip-h">Měkké světlo</div>
+        <div class="tip-p">Zastíněné okno nebo venku ve stínu. Žádné ostré stíny na tváři.</div>
+      </div>
+      <div class="tip">
+        <div class="tip-ic">😶</div>
+        <div class="tip-h">Nehybnost</div>
+        <div class="tip-p">Fotografovaný se nesmí hýbat, mluvit, ani měnit výraz obličeje.</div>
+      </div>
+      <div class="tip">
+        <div class="tip-ic">📏</div>
+        <div class="tip-h">50–80 cm</div>
+        <div class="tip-p">Hlava vyplňuje celý záběr. Blíže = více detailů.</div>
+      </div>
+    </div>
+    <div class="tips-warn" id="tips-warn" style="display:none">⚡ Bez splnění těchto podmínek 3D model nevznikne nebo bude nekvalitní.</div>
+  </div>
+
+  <!-- Step card -->
+  <div class="step-card" id="step-card">
+
+    <div class="step-head">
+      <div class="pos-num pos-n1" id="pos-num">👁️</div>
+      <div>
+        <div class="pos-name" id="pos-name">Zepředu</div>
+        <div class="pos-meta" id="pos-meta">Fotka 1 ze 4 &nbsp;·&nbsp; pohled přímo do objektivu</div>
+      </div>
+    </div>
+
+    <div class="map-wrap">
+      <svg id="pos-map" viewBox="0 0 210 210" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div class="step-instr">
+      <div id="instr-main">Stůj přímo před fotografovanou osobou. Hlava musí vyplnit záběr.</div>
+      <div class="sub" id="instr-sub">💡 Oči fotografovaného míří přímo do objektivu.</div>
+    </div>
+
+    <!-- Camera or captured image -->
+    <div class="media-wrap" id="media-wrap">
+      <video id="cam-video" autoplay muted playsinline></video>
+      <img id="cap-img" src="" alt="" style="display:none"/>
+      <div class="countdown-overlay" id="countdown"></div>
+      <div class="flash-overlay" id="flash"></div>
+      <div class="captured-badge" id="cap-badge" style="display:none">✓ Uloženo</div>
+    </div>
+
+    <!-- Upload progress -->
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="prog-lbl" id="prog-lbl">Nahrávám…</div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- Error -->
+    <div class="err-msg" id="err-msg"></div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <!-- A: initial -->
+      <div id="act-initial">
+        <button class="btn btn-primary" onclick="openCamera()">📸 Zahájit snímání</button>
+        <button class="btn-ghost" onclick="openGallery()">📁 Nahrát z galerie (nebo od fotografa)</button>
+      </div>
+      <!-- B: camera open -->
+      <div id="act-camera" style="display:none">
+        <button class="btn btn-primary" id="btn-shoot" onclick="shoot()">📸 Vyfotit</button>
+        <button class="btn-ghost" onclick="closeCamera()">✕ Zrušit</button>
+      </div>
+      <!-- C: captured, ready to proceed -->
+      <div id="act-done" style="display:none" class="btn-row">
+        <button class="btn btn-outline" onclick="retake()">↩ Znovu</button>
+        <button class="btn btn-success" id="btn-next" onclick="nextStep()">Pokračovat →</button>
+      </div>
+    </div>
+
+  </div>
+
 </div>
 
-<div class="field">
-  <label>Název projektu</label>
-  <input type="text" id="session-input" placeholder="hlava_01"/>
+<!-- Done screen (replaces scroll area) -->
+<div id="screen-done">
+  <div class="done-ring">✅</div>
+  <div class="done-h">Skvěle, hotovo!</div>
+  <div class="done-p">Všechny 4 fotky jsou nahrané a zpracování bylo zahájeno.</div>
+  <div class="done-detail">
+    <div class="done-row"><span class="done-row-ic">⏱</span><span class="done-row-txt">Zpracování trvá <strong>2–5 minut</strong></span></div>
+    <div class="done-row"><span class="done-row-ic">👤</span><span class="done-row-txt">Výsledky uvidíš v <strong>admin přehledu</strong></span></div>
+    <div class="done-row"><span class="done-row-ic">📱</span><span class="done-row-txt">Tuto záložku můžeš zavřít</span></div>
+  </div>
 </div>
 
-<!-- ── SET 1 ── -->
-<div class="set-card" id="card-1">
-  <div class="set-header">
-    <div class="set-num n1">1</div>
-    <div><div class="set-title">Výška očí — 360°</div><div class="set-sub">16 fotek • kamera ve výšce očí</div></div>
-    <div class="set-pill pill-idle" id="pill-1">0 / 16</div>
-  </div>
-  <div class="ring-wrap">
-    <svg id="ring-1" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div class="ring-instr" id="instr-1">Postav se přímo před fotografovanou osobu</div>
-  </div>
-  <div class="preview-wrap" id="preview-1">
-    <video id="video-1" autoplay muted playsinline></video>
-    <div class="flash-el" id="flash-1"></div>
-    <div class="countdown-el" id="cd-1"></div>
-  </div>
-  <div class="btn-row">
-    <button class="btn-start" id="start-1" onclick="startAutoCapture(1)">▶ Zahájit auto-snímání</button>
-    <button class="btn-gallery" onclick="openGallery(1)">📁 Z galerie</button>
-  </div>
-  <input type="file" id="gal-1" multiple accept="image/*" style="display:none"/>
-  <div class="prog-wrap" id="prog-1">
-    <div class="prog-hdr"><span id="prog-txt-1">Nahrávám…</span><span id="prog-pct-1">0%</span></div>
-    <div class="prog-track"><div class="prog-fill fill-1" id="prog-fill-1" style="width:0%"></div></div>
-  </div>
-  <div class="thumb-grid" id="thumbs-1"></div>
-  <div class="err-el" id="err-1"></div>
-</div>
-
-<!-- ── SET 2 ── -->
-<div class="set-card locked" id="card-2">
-  <div class="set-header">
-    <div class="set-num n2">2</div>
-    <div><div class="set-title">Mírně shora — 360°</div><div class="set-sub">16 fotek • kamera ~30° nad výškou očí</div></div>
-    <div class="set-pill pill-idle" id="pill-2">0 / 16</div>
-  </div>
-  <div class="elev-hint">📐 Zvedni kameru přibližně <strong>30° nad výšku očí</strong> a míř lehce dolů na temeno. Stejné pozice jako Set 1.</div>
-  <div class="ring-wrap">
-    <svg id="ring-2" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div class="ring-instr" id="instr-2">Postav se přímo před osobu — kamera výš</div>
-  </div>
-  <div class="preview-wrap" id="preview-2">
-    <video id="video-2" autoplay muted playsinline></video>
-    <div class="flash-el" id="flash-2"></div>
-    <div class="countdown-el" id="cd-2"></div>
-  </div>
-  <div class="btn-row">
-    <button class="btn-start" id="start-2" onclick="startAutoCapture(2)">▶ Zahájit auto-snímání</button>
-    <button class="btn-gallery" onclick="openGallery(2)">📁 Z galerie</button>
-  </div>
-  <input type="file" id="gal-2" multiple accept="image/*" style="display:none"/>
-  <div class="prog-wrap" id="prog-2">
-    <div class="prog-hdr"><span id="prog-txt-2">Nahrávám…</span><span id="prog-pct-2">0%</span></div>
-    <div class="prog-track"><div class="prog-fill fill-2" id="prog-fill-2" style="width:0%"></div></div>
-  </div>
-  <div class="thumb-grid" id="thumbs-2"></div>
-  <div class="err-el" id="err-2"></div>
-</div>
-
-<!-- ── SET 3 ── -->
-<div class="set-card locked" id="card-3">
-  <div class="set-header">
-    <div class="set-num n3">3</div>
-    <div><div class="set-title">Brada — přední půlkruh</div><div class="set-sub">8 fotek • kamera ~20° pod očima</div></div>
-    <div class="set-pill pill-idle" id="pill-3">0 / 8</div>
-  </div>
-  <div class="elev-hint">📐 Spusti kameru přibližně <strong>20° pod výšku očí</strong> a míř nahoru na bradu. Jen přední polovina kruhu.</div>
-  <div class="ring-wrap">
-    <svg id="ring-3" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div class="ring-instr" id="instr-3">Stůj napravo od osoby (pravé ucho) — kamera níže</div>
-  </div>
-  <div class="preview-wrap" id="preview-3">
-    <video id="video-3" autoplay muted playsinline></video>
-    <div class="flash-el" id="flash-3"></div>
-    <div class="countdown-el" id="cd-3"></div>
-  </div>
-  <div class="btn-row">
-    <button class="btn-start" id="start-3" onclick="startAutoCapture(3)">▶ Zahájit auto-snímání</button>
-    <button class="btn-gallery" onclick="openGallery(3)">📁 Z galerie</button>
-  </div>
-  <input type="file" id="gal-3" multiple accept="image/*" style="display:none"/>
-  <div class="prog-wrap" id="prog-3">
-    <div class="prog-hdr"><span id="prog-txt-3">Nahrávám…</span><span id="prog-pct-3">0%</span></div>
-    <div class="prog-track"><div class="prog-fill fill-3" id="prog-fill-3" style="width:0%"></div></div>
-  </div>
-  <div class="thumb-grid" id="thumbs-3"></div>
-  <div class="err-el" id="err-3"></div>
-</div>
-
-<!-- ── Done ── -->
-<div class="done-card" id="done-card">
-  <div class="done-ico">🎉</div>
-  <div class="done-ttl">Všechno nahráno!</div>
-  <div class="done-det">Fotky jsou na cestě ke zpracování.<br>Za pár minut se objeví v admin přehledu.</div>
-</div>
+<!-- Hidden gallery input -->
+<input type="file" id="gal-input" accept="image/*"/>
 
 <script>
-// ── Konfigurace setů ──────────────────────────────────────────────────────────
-const SETS = [
+// ── Config ────────────────────────────────────────────────────────────────────
+const STEPS = [
   {
-    id:1, total:16, accent:'#3ddc84', fullCircle:true,
-    instructions:[
-      'Přímo před fotografovanou osobou',
-      'Krok doprava (po směru hodinových ručiček)',
-      'Čelně-pravý úhel',
-      'Ještě krok doprava',
-      'Přímo napravo — z boku',
-      'Pravá strana, pohyb dozadu',
-      'Pravě-zadní úhel',
-      'Krok dozadu',
-      'Přímo za osobou',
-      'Levá strana zad',
-      'Levě-zadní úhel',
-      'Krok doleva',
-      'Přímo nalevo — z boku',
-      'Levá strana, pohyb dopředu',
-      'Levě-čelní úhel',
-      'Poslední foto — kruh uzavřen',
-    ],
+    emoji:'👁️', numCls:'pos-n1', color:'#3ddc84',
+    name:'Zepředu',
+    meta:'Fotka 1 ze 4 · pohled přímo do objektivu',
+    instr:'Stůj přímo před fotografovanou osobou. Hlava musí vyplnit záběr.',
+    tip:'💡 Oči fotografovaného míří přímo do objektivu.',
+    angle: -Math.PI/2, // 12 o'clock
   },
   {
-    id:2, total:16, accent:'#6c63ff', fullCircle:true,
-    instructions:[
-      'Přímo před osobou — kamera výš, míří dolů',
-      'Krok doprava — kamera nahoře',
-      'Čelně-pravý úhel — shora',
-      'Ještě krok — shora',
-      'Přímo napravo — shora',
-      'Pravá strana dozadu — shora',
-      'Pravě-zadní — shora',
-      'Krok dozadu — shora',
-      'Přímo za osobou — shora',
-      'Levá strana zad — shora',
-      'Levě-zadní — shora',
-      'Krok doleva — shora',
-      'Přímo nalevo — shora',
-      'Levá strana dopředu — shora',
-      'Levě-čelní — shora',
-      'Poslední foto shora — hotovo!',
-    ],
+    emoji:'👂', numCls:'pos-n2', color:'#6c63ff',
+    name:'Zprava',
+    meta:'Fotka 2 ze 4 · pravý profil',
+    instr:'Přesuň se napravo od fotografovaného — vidíš pravé ucho a profil.',
+    tip:'💡 Fotografovaný se nesmí otáčet, stojí pořád čelem dopředu.',
+    angle: 0, // 3 o'clock
   },
   {
-    id:3, total:8, accent:'#ff6584', fullCircle:false,
-    instructions:[
-      'Napravo od osoby (pravé ucho) — kamera níže',
-      'Pohni se k čelně-pravému úhlu',
-      'Čelně-pravý — kamera níže',
-      'Těsně před osobou z pravé strany',
-      'Přímo před osobou — kamera níže',
-      'Těsně před z levé strany',
-      'Čelně-levý — kamera níže',
-      'Nalevo od osoby (levé ucho) — kamera níže',
-    ],
+    emoji:'🔙', numCls:'pos-n3', color:'#ffb347',
+    name:'Zezadu',
+    meta:'Fotka 3 ze 4 · zátylek',
+    instr:'Přejdi za fotografovaného — fotografuješ zátylek.',
+    tip:'💡 Hlava pořád ve stejné poloze, tělo se nehýbe.',
+    angle: Math.PI/2, // 6 o'clock
+  },
+  {
+    emoji:'👂', numCls:'pos-n4', color:'#ff6584',
+    name:'Zleva',
+    meta:'Fotka 4 ze 4 · levý profil',
+    instr:'Přesuň se nalevo od fotografovaného — vidíš levé ucho a profil.',
+    tip:'💡 Fotografovaný stojí pořád stejně — jen ty obcházíš kolem.',
+    angle: Math.PI, // 9 o'clock
   },
 ];
 
-// ── URL params ─────────────────────────────────────────────────────────────────
-const params      = new URLSearchParams(location.search);
-const URL_SESSION = params.get('session') || '';
-const URL_SECRET  = params.get('secret')  || '';
+// ── URL params ────────────────────────────────────────────────────────────────
+const params  = new URLSearchParams(location.search);
+const SESSION = params.get('session') || '';
+const SECRET  = params.get('secret')  || '';
+let useR2 = false;
 
-if (!URL_SESSION) {
-  document.body.innerHTML = `<div style="padding:40px;text-align:center;color:#ff6584;font-family:sans-serif">
-    <div style="font-size:3rem">🔒</div><h2 style="margin:12px 0">Neplatný odkaz</h2>
-    <p style="color:#8888a0">Naskenuj QR kód z PC aplikace.</p></div>`;
-}
-if (URL_SESSION) {
-  document.getElementById('session-input').value = URL_SESSION;
-  document.getElementById('session-input').readOnly = true;
+if (!SESSION) {
+  document.body.innerHTML = `<div style="padding:60px 24px;text-align:center;font-family:sans-serif">
+    <div style="font-size:3.5rem">🔒</div>
+    <h2 style="margin:14px 0;color:#f0f0f5">Neplatný odkaz</h2>
+    <p style="color:#6e6e90">Naskenuj QR kód z PC aplikace.</p></div>`;
 }
 
-const sessionVal = () => URL_SESSION ||
-  document.getElementById('session-input').value.trim().replace(/[^a-z0-9_-]/gi,'_') || 'hlava_01';
-
-function withSecret(url) {
-  if (!URL_SECRET) return url;
-  const u = new URL(url, location.origin);
-  u.searchParams.set('secret', URL_SECRET);
-  return u.toString();
-}
+(async()=>{try{const d=await fetch('/qr').then(r=>r.json());useR2=!!d.r2Ready;}catch{}})();
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const state = { 1:{done:0}, 2:{done:0}, 3:{done:0} };
-let useR2 = false;
+let step = 1;
+let captured = [false,false,false,false];
 let activeStream = null;
-let captureStopped = false;
+let shooting = false;
 
-(async()=>{ try{ const d=await fetch('/qr').then(r=>r.json()); useR2=!!d.r2Ready; }catch{} })();
+// ── Top-down SVG map ──────────────────────────────────────────────────────────
+function drawMap(currentIdx) {
+  const cx=105, cy=105, R=72;
+  let s='';
 
-// ── Position ring renderer ────────────────────────────────────────────────────
-function drawRing(id, doneCount) {
-  const cfg = SETS[id-1];
-  const { total, fullCircle, accent } = cfg;
-  const cx=100, cy=100, r=70;
-  const current = doneCount < total ? doneCount : total;
+  // Orbit ring
+  s+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#222232" stroke-width="1.5" stroke-dasharray="5 4"/>`;
 
-  const pts = fullCircle
-    ? Array.from({length:total}, (_,i) => {
-        const a = -Math.PI/2 + i*(2*Math.PI/total);
-        return { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
-      })
-    : Array.from({length:total}, (_,i) => {
-        const a = Math.PI/2 - i*(Math.PI/(total-1));
-        return { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
-      });
+  // Connecting arcs between positions (subtle)
+  STEPS.forEach((_,i)=>{
+    const a=STEPS[i].angle, b=STEPS[(i+1)%4].angle;
+    const done = i < currentIdx;
+    const x1=(cx+R*Math.cos(a)).toFixed(1), y1=(cy+R*Math.sin(a)).toFixed(1);
+    const x2=(cx+R*Math.cos(b)).toFixed(1), y2=(cy+R*Math.sin(b)).toFixed(1);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${done?'#3ddc8428':'#1e1e2a'}" stroke-width="1.2"/>`;
+  });
 
-  let s = '';
-  // Orbit
-  if (fullCircle) {
-    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#2a2a35" stroke-width="1.5" stroke-dasharray="5 3"/>`;
-  } else {
-    const p0=pts[0], p1=pts[total-1];
-    s += `<path d="M${p0.x.toFixed(1)} ${p0.y.toFixed(1)} A${r} ${r} 0 0 1 ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}" fill="none" stroke="#2a2a35" stroke-width="1.5" stroke-dasharray="5 3"/>`;
-  }
-  // Head
-  s += `<ellipse cx="${cx}" cy="${cy}" rx="17" ry="21" fill="#1a1a1f" stroke="#383848" stroke-width="2"/>`;
-  s += `<circle cx="${cx}" cy="${cy-17}" r="3" fill="#383848"/>`;
+  // Head (top-down view)
+  // Hair / scalp
+  s+=`<ellipse cx="${cx}" cy="${cy+4}" rx="26" ry="32" fill="#1c1c28" stroke="#2e2e42" stroke-width="2"/>`;
+  // Nose bump (indicates front = top)
+  s+=`<ellipse cx="${cx}" cy="${cy-30}" rx="8" ry="10" fill="#1c1c28" stroke="#2e2e42" stroke-width="1.8"/>`;
+  // Eyes (tiny dots to reinforce front orientation)
+  s+=`<circle cx="${cx-9}" cy="${cy-12}" r="2.5" fill="#2e2e42"/>`;
+  s+=`<circle cx="${cx+9}" cy="${cy-12}" r="2.5" fill="#2e2e42"/>`;
+  // Ears
+  s+=`<ellipse cx="${cx-26}" cy="${cy+4}" rx="5" ry="8.5" fill="#1c1c28" stroke="#2e2e42" stroke-width="1.5"/>`;
+  s+=`<ellipse cx="${cx+26}" cy="${cy+4}" rx="5" ry="8.5" fill="#1c1c28" stroke="#2e2e42" stroke-width="1.5"/>`;
+  // "PŘED" label inside
+  s+=`<text x="${cx}" y="${cy-43}" text-anchor="middle" font-size="8" fill="#33334a" font-family="sans-serif" letter-spacing="1">PŘED</text>`;
 
-  pts.forEach((p,i) => {
-    const px=p.x.toFixed(1), py=p.y.toFixed(1);
-    if (i < doneCount) {
-      s += `<circle cx="${px}" cy="${py}" r="9" fill="${accent}22" stroke="${accent}" stroke-width="1.5"/>`;
-      s += `<polyline points="${(p.x-4).toFixed(1)},${(p.y+1).toFixed(1)} ${(p.x-1).toFixed(1)},${(p.y+5).toFixed(1)} ${(p.x+5).toFixed(1)},${(p.y-3).toFixed(1)}" fill="none" stroke="${accent}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-    } else if (i === current && doneCount < total) {
-      s += `<circle cx="${px}" cy="${py}" r="13" fill="${accent}18" stroke="${accent}" stroke-width="2"/>`;
-      s += `<rect x="${(p.x-7).toFixed(1)}" y="${(p.y-4.5).toFixed(1)}" width="14" height="10" rx="2" fill="${accent}"/>`;
-      s += `<circle cx="${px}" cy="${(p.y+0.5).toFixed(1)}" r="3.5" fill="#0d0d0f"/>`;
-      s += `<circle cx="${px}" cy="${(p.y+0.5).toFixed(1)}" r="1.5" fill="${accent}66"/>`;
-      s += `<rect x="${(p.x+2).toFixed(1)}" y="${(p.y-7).toFixed(1)}" width="4" height="3" rx="1" fill="${accent}"/>`;
+  // Position dots
+  STEPS.forEach((pos,i)=>{
+    const px=cx+R*Math.cos(pos.angle), py=cy+R*Math.sin(pos.angle);
+    const pxs=px.toFixed(1), pys=py.toFixed(1);
+    const col=pos.color;
+    const isDone = i < currentIdx;
+    const isCurr = i === currentIdx;
+
+    if(isDone){
+      // Done: filled check circle
+      s+=`<circle cx="${pxs}" cy="${pys}" r="13" fill="${col}20" stroke="${col}" stroke-width="2"/>`;
+      // Checkmark
+      const cx2=px, cy2=py;
+      s+=`<polyline points="${(cx2-5).toFixed(1)},${(cy2+1).toFixed(1)} ${(cx2-1.5).toFixed(1)},${(cy2+5).toFixed(1)} ${(cx2+6).toFixed(1)},${(cy2-4).toFixed(1)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    } else if(isCurr){
+      // Current: camera icon with outer glow
+      s+=`<circle cx="${pxs}" cy="${pys}" r="18" fill="${col}12" stroke="${col}" stroke-width="2.5"/>`;
+      // Camera body rect
+      s+=`<rect x="${(px-10).toFixed(1)}" y="${(py-6).toFixed(1)}" width="20" height="14" rx="3" fill="${col}"/>`;
+      // Lens
+      s+=`<circle cx="${pxs}" cy="${(py+1).toFixed(1)}" r="5" fill="#0a0a12"/>`;
+      s+=`<circle cx="${pxs}" cy="${(py+1).toFixed(1)}" r="2.2" fill="${col}99"/>`;
+      // Viewfinder bump
+      s+=`<rect x="${(px+2).toFixed(1)}" y="${(py-9.5).toFixed(1)}" width="6" height="4" rx="1.5" fill="${col}"/>`;
+      // Direction arrow toward head
+      const dx=cx-px, dy=cy-py, len=Math.sqrt(dx*dx+dy*dy);
+      const nx=dx/len, ny=dy/len;
+      const ax1=px+nx*22, ay1=py+ny*22, ax2=px+nx*38, ay2=py+ny*38;
+      s+=`<line x1="${ax1.toFixed(1)}" y1="${ay1.toFixed(1)}" x2="${ax2.toFixed(1)}" y2="${ay2.toFixed(1)}" stroke="${col}70" stroke-width="2" stroke-linecap="round"/>`;
+      // Arrowhead
+      const perpX=-ny, perpY=nx;
+      const tip_x=ax2+nx*5, tip_y=ay2+ny*5;
+      s+=`<polygon points="${tip_x.toFixed(1)},${tip_y.toFixed(1)} ${(ax2+perpX*4).toFixed(1)},${(ay2+perpY*4).toFixed(1)} ${(ax2-perpX*4).toFixed(1)},${(ay2-perpY*4).toFixed(1)}" fill="${col}70"/>`;
     } else {
-      s += `<circle cx="${px}" cy="${py}" r="6" fill="#242429" stroke="#333" stroke-width="1"/>`;
-      s += `<text x="${px}" y="${(p.y+3.5).toFixed(1)}" text-anchor="middle" font-size="7" fill="#555" font-family="sans-serif">${i+1}</text>`;
+      // Upcoming: dim numbered dot
+      s+=`<circle cx="${pxs}" cy="${pys}" r="12" fill="#18182a" stroke="#2a2a3c" stroke-width="1.5"/>`;
+      s+=`<text x="${pxs}" y="${(py+4.5).toFixed(1)}" text-anchor="middle" font-size="11" fill="#44445a" font-family="sans-serif" font-weight="700">${i+1}</text>`;
     }
   });
 
-  document.getElementById(`ring-${id}`).innerHTML = s;
+  document.getElementById('pos-map').innerHTML=s;
 }
 
-SETS.forEach(c => drawRing(c.id, 0));
+// ── Card update ───────────────────────────────────────────────────────────────
+function updateCard(){
+  const s=STEPS[step-1];
+  const idx=step-1;
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // Dots
+  for(let i=1;i<=4;i++){
+    const d=document.getElementById(`dot-${i}`);
+    d.className='sdot'+(i<step?' done':i===step?' active':'');
+  }
 
-function addThumb(setId, blob, cls='') {
-  const img = document.createElement('img');
-  if (cls) img.className = cls;
-  img.src = URL.createObjectURL(blob);
-  document.getElementById(`thumbs-${setId}`).appendChild(img);
-  return img;
+  // Header
+  const num=document.getElementById('pos-num');
+  num.className=`pos-num ${s.numCls}`;
+  num.textContent=s.emoji;
+  document.getElementById('pos-name').textContent=s.name;
+  document.getElementById('pos-meta').textContent=s.meta;
+  document.getElementById('instr-main').textContent=s.instr;
+  document.getElementById('instr-sub').textContent=s.tip;
+
+  // Map
+  drawMap(idx);
+
+  // Next button label
+  document.getElementById('btn-next').textContent=step<4?'Pokračovat →':'Odeslat ✓';
+  if(step===4) document.getElementById('btn-next').className='btn btn-success';
+
+  // Reset UI
+  setActions('initial');
+  hideMedia();
+  hideProg();
+  hideErr();
 }
 
-function setProg(id, pct, txt) {
-  const w = document.getElementById(`prog-${id}`);
-  w.style.display = 'flex';
-  document.getElementById(`prog-fill-${id}`).style.width = pct + '%';
-  document.getElementById(`prog-pct-${id}`).textContent = pct + '%';
-  document.getElementById(`prog-txt-${id}`).textContent = txt;
+function setActions(state){
+  document.getElementById('act-initial').style.display=state==='initial'?'block':'none';
+  document.getElementById('act-camera').style.display=state==='camera'?'block':'none';
+  document.getElementById('act-done').style.display=state==='done'?'flex':'none';
 }
 
-function updatePill(id) {
-  const cfg = SETS[id-1];
-  const d = state[id].done;
-  const pill = document.getElementById(`pill-${id}`);
-  pill.textContent = `${d} / ${cfg.total}`;
-  pill.className = d >= cfg.total ? 'set-pill pill-done' : d > 0 ? 'set-pill pill-prog' : 'set-pill pill-idle';
+function hideMedia(){
+  const w=document.getElementById('media-wrap');
+  w.style.display='none';
+  document.getElementById('cam-video').style.display='block';
+  document.getElementById('cap-img').style.display='none';
+  document.getElementById('cap-badge').style.display='none';
+  document.getElementById('countdown').style.display='none';
+  document.getElementById('flash').style.opacity='0';
 }
 
-function showErr(id, msg) {
-  const el = document.getElementById(`err-${id}`);
-  el.style.display = 'block';
-  el.textContent = '❌ ' + msg;
-}
+function hideProg(){document.getElementById('prog-wrap').style.display='none';}
+function hideErr(){document.getElementById('err-msg').style.display='none';}
+function showErr(msg){const e=document.getElementById('err-msg');e.style.display='block';e.textContent='❌ '+msg;}
 
-function stopCamera() {
-  if (activeStream) { activeStream.getTracks().forEach(t => t.stop()); activeStream = null; }
-}
-
-// ── Upload one blob ────────────────────────────────────────────────────────────
-async function uploadBlob(setId, index, blob) {
-  const session = sessionVal();
-  const filename = `s${setId}_p${String(index).padStart(3,'0')}.jpg`;
-
-  if (useR2) {
-    const { url } = await fetch(withSecret(`/photo/presign?session=${encodeURIComponent(session)}&set=${setId}&index=${index}`))
-      .then(r => r.ok ? r.json() : r.json().then(d => { throw new Error(d.error || r.status); }));
-    await new Promise((res, rej) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', url);
-      xhr.onload  = () => xhr.status < 300 ? res() : rej(new Error('HTTP ' + xhr.status));
-      xhr.onerror = () => rej(new Error('Síťová chyba'));
-      xhr.send(blob);
+// ── Camera ────────────────────────────────────────────────────────────────────
+async function openCamera(){
+  hideErr();
+  try{
+    activeStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false
     });
-  } else {
-    const fd = new FormData();
-    fd.append('photo', blob, filename);
-    fd.append('session', session); fd.append('set', setId); fd.append('index', index);
-    if (URL_SECRET) fd.append('secret', URL_SECRET);
-    const r = await fetch('/photo/upload', { method:'POST', body:fd });
-    if (!r.ok) { const d=await r.json().catch(()=>{}); throw new Error((d&&d.error)||r.status); }
+  }catch(e){
+    try{activeStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}
+    catch(e2){showErr('Kamera nedostupná: '+e2.message+'. Zkus "Nahrát z galerie".');return;}
+  }
+  const vid=document.getElementById('cam-video');
+  vid.srcObject=activeStream;
+  vid.style.display='block';
+  document.getElementById('cap-img').style.display='none';
+  document.getElementById('cap-badge').style.display='none';
+  await vid.play().catch(()=>{});
+  document.getElementById('media-wrap').style.display='block';
+  setActions('camera');
+}
+
+function closeCamera(){
+  stopStream();
+  hideMedia();
+  setActions('initial');
+  shooting=false;
+}
+
+function stopStream(){
+  if(activeStream){activeStream.getTracks().forEach(t=>t.stop());activeStream=null;}
+}
+
+async function shoot(){
+  if(shooting)return;
+  shooting=true;
+  document.getElementById('btn-shoot').disabled=true;
+
+  const cdEl=document.getElementById('countdown');
+  cdEl.style.display='flex';
+  for(let n=3;n>=1;n--){cdEl.textContent=n;await sleep(900);}
+  cdEl.textContent='📸';await sleep(200);
+  cdEl.style.display='none';
+
+  // Flash
+  const flash=document.getElementById('flash');
+  flash.style.opacity='1';
+  setTimeout(()=>flash.style.opacity='0',160);
+
+  // Capture
+  const vid=document.getElementById('cam-video');
+  const canvas=document.createElement('canvas');
+  canvas.width=vid.videoWidth||1920;
+  canvas.height=vid.videoHeight||1080;
+  canvas.getContext('2d').drawImage(vid,0,0);
+  const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.95));
+
+  stopStream();
+  document.getElementById('cam-video').style.display='none';
+  document.getElementById('btn-shoot').disabled=false;
+  shooting=false;
+
+  await handleBlob(blob);
+}
+
+// ── Blob handler (camera or gallery) ─────────────────────────────────────────
+async function handleBlob(blob){
+  // Show preview
+  const cap=document.getElementById('cap-img');
+  cap.src=URL.createObjectURL(blob);
+  cap.style.display='block';
+  document.getElementById('cam-video').style.display='none';
+  document.getElementById('media-wrap').style.display='block';
+  setActions('initial'); // hide all while uploading
+
+  // Progress
+  const pw=document.getElementById('prog-wrap');
+  pw.style.display='flex';
+  document.getElementById('prog-lbl').textContent='Nahrávám…';
+  startProgressAnim();
+
+  try{
+    await uploadBlob(blob, step);
+    stopProgressAnim(true);
+    document.getElementById('cap-badge').style.display='block';
+    captured[step-1]=true;
+    setActions('done');
+  }catch(e){
+    stopProgressAnim(false);
+    cap.style.display='none';
+    document.getElementById('media-wrap').style.display='none';
+    showErr('Nahrávání selhalo: '+e.message);
+    setActions('initial');
   }
 }
 
-// ── On set complete ────────────────────────────────────────────────────────────
-async function onSetDone(id) {
-  const cfg = SETS[id-1];
-  drawRing(id, cfg.total);
-  document.getElementById(`instr-${id}`).textContent = `✅ ${cfg.total} fotek nahráno!`;
-  document.getElementById(`start-${id}`).style.display = 'none';
-  document.getElementById(`prog-${id}`).style.display = 'none';
-
-  if (id < 3) {
-    const next = document.getElementById(`card-${id+1}`);
-    next.classList.remove('locked');
-    setTimeout(() => next.scrollIntoView({ behavior:'smooth', block:'start' }), 300);
-  } else {
-    await completeSession();
+// ── Progress animation ────────────────────────────────────────────────────────
+let _progTimer=null;
+function startProgressAnim(){
+  let pct=0;
+  document.getElementById('prog-fill').style.width='0%';
+  _progTimer=setInterval(()=>{
+    pct=Math.min(pct+8,88);
+    document.getElementById('prog-fill').style.width=pct+'%';
+  },180);
+}
+function stopProgressAnim(success){
+  clearInterval(_progTimer);
+  const fill=document.getElementById('prog-fill');
+  if(success){
+    fill.style.width='100%';
+    fill.style.background='var(--grn)';
+    setTimeout(()=>{document.getElementById('prog-wrap').style.display='none';fill.style.background='var(--acc)';},900);
+  }else{
+    document.getElementById('prog-wrap').style.display='none';
+    fill.style.width='0%';
   }
 }
 
-async function completeSession() {
-  const counts = SETS.map(c => state[c.id].done);
-  try {
-    await fetch('/photo/complete', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ session: sessionVal(), counts, secret: URL_SECRET }),
+// ── Retake / Next ─────────────────────────────────────────────────────────────
+function retake(){
+  captured[step-1]=false;
+  hideMedia();
+  hideProg();
+  hideErr();
+  setActions('initial');
+}
+
+async function nextStep(){
+  if(step<4){
+    step++;
+    updateCard();
+    document.getElementById('step-card').scrollIntoView({behavior:'smooth',block:'start'});
+  }else{
+    await finishSession();
+  }
+}
+
+async function finishSession(){
+  try{
+    await fetch('/photo/complete',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session:SESSION,counts:[4],secret:SECRET}),
     });
-  } catch {}
-  document.getElementById('done-card').style.display = 'flex';
-  document.getElementById('done-card').scrollIntoView({ behavior:'smooth' });
+  }catch{}
+  // Mark all dots done
+  for(let i=1;i<=4;i++) document.getElementById(`dot-${i}`).className='sdot done';
+  document.getElementById('main-scroll').style.display='none';
+  document.getElementById('screen-done').classList.add('vis');
 }
 
-// ── AUTO-CAPTURE ───────────────────────────────────────────────────────────────
-async function startAutoCapture(id) {
-  const cfg = SETS[id-1];
-  const errEl = document.getElementById(`err-${id}`);
-  errEl.style.display = 'none';
-  captureStopped = false;
-
-  // Get camera
-  try {
-    activeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:{ ideal:'environment' }, width:{ideal:1920}, height:{ideal:1080} },
-      audio: false,
-    });
-  } catch(e) {
-    showErr(id, 'Kamera nedostupná: ' + e.message + ' — použij "Z galerie"');
-    return;
+// ── Upload ────────────────────────────────────────────────────────────────────
+async function uploadBlob(blob, stepNum){
+  if(useR2){
+    const qs=`session=${encodeURIComponent(SESSION)}&set=1&index=${stepNum}${SECRET?'&secret='+encodeURIComponent(SECRET):''}`;
+    const res=await fetch(`/photo/presign?${qs}`);
+    if(!res.ok){const d=await res.json().catch(()=>{});throw new Error(d?.error||res.status);}
+    const {url}=await res.json();
+    const r=await fetch(url,{method:'PUT',body:blob});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  }else{
+    const fd=new FormData();
+    fd.append('photo',blob,`s1_p${String(stepNum).padStart(3,'0')}.jpg`);
+    fd.append('session',SESSION);fd.append('set','1');fd.append('index',String(stepNum));
+    if(SECRET) fd.append('secret',SECRET);
+    const r=await fetch('/photo/upload',{method:'POST',body:fd});
+    if(!r.ok){const d=await r.json().catch(()=>{});throw new Error(d?.error||r.status);}
   }
-
-  const video = document.getElementById(`video-${id}`);
-  video.srcObject = activeStream;
-  await video.play().catch(()=>{});
-
-  document.getElementById(`preview-${id}`).style.display = 'block';
-  document.getElementById(`start-${id}`).disabled = true;
-  document.getElementById(`start-${id}`).textContent = '⏹ Zastavit';
-  document.getElementById(`start-${id}`).onclick = () => { captureStopped = true; stopCapture(id); };
-
-  // Capture loop
-  const startIndex = state[id].done;
-  for (let i = startIndex; i < cfg.total; i++) {
-    if (captureStopped) break;
-
-    // Update instruction
-    document.getElementById(`instr-${id}`).textContent = cfg.instructions[i];
-    drawRing(id, i);
-
-    // Countdown 4→1
-    const cdEl = document.getElementById(`cd-${id}`);
-    cdEl.style.display = 'flex';
-    for (let s = 4; s >= 1; s--) {
-      if (captureStopped) break;
-      cdEl.textContent = s;
-      await sleep(900);
-    }
-    if (captureStopped) { cdEl.style.display = 'none'; break; }
-    cdEl.textContent = '📸';
-    await sleep(150);
-    cdEl.style.display = 'none';
-
-    // Flash
-    const flash = document.getElementById(`flash-${id}`);
-    flash.style.opacity = '1';
-    setTimeout(() => flash.style.opacity = '0', 130);
-
-    // Capture frame
-    const canvas = document.createElement('canvas');
-    canvas.width  = video.videoWidth  || 1280;
-    canvas.height = video.videoHeight || 720;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
-
-    // Thumb + upload
-    const img = addThumb(id, blob, 'thumb-uploading');
-    setProg(id, Math.round((i+1)/cfg.total*100), `Nahrávám ${i+1}/${cfg.total}…`);
-    try {
-      await uploadBlob(id, i+1, blob);
-      img.className = 'thumb-done';
-      state[id].done++;
-      updatePill(id);
-    } catch(e) {
-      img.remove();
-      showErr(id, e.message + ' — zkus pokračovat nebo použij galerii');
-      stopCapture(id);
-      return;
-    }
-  }
-
-  stopCapture(id);
-  if (state[id].done >= cfg.total) await onSetDone(id);
 }
 
-function stopCapture(id) {
-  stopCamera();
-  document.getElementById(`preview-${id}`).style.display = 'none';
-  const btn = document.getElementById(`start-${id}`);
-  btn.disabled = false;
-  btn.textContent = state[id].done > 0 ? '▶ Pokračovat' : '▶ Zahájit auto-snímání';
-  btn.onclick = () => startAutoCapture(id);
-  document.getElementById(`cd-${id}`).style.display = 'none';
-}
+// ── Gallery ───────────────────────────────────────────────────────────────────
+function openGallery(){document.getElementById('gal-input').click();}
 
-// ── GALLERY UPLOAD ─────────────────────────────────────────────────────────────
-function openGallery(id) { document.getElementById(`gal-${id}`).click(); }
-
-SETS.forEach(cfg => {
-  document.getElementById(`gal-${cfg.id}`).addEventListener('change', async e => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    const id = cfg.id;
-    document.getElementById(`err-${id}`).style.display = 'none';
-    document.getElementById(`start-${id}`).disabled = true;
-
-    let uploaded = 0;
-    for (const file of files) {
-      const idx = state[id].done + 1;
-      const img = addThumb(id, file, 'thumb-uploading');
-      setProg(id, Math.round(uploaded/files.length*100), `Nahrávám ${uploaded+1}/${files.length}…`);
-      try {
-        await uploadBlob(id, idx, file);
-        img.className = 'thumb-done';
-        state[id].done++;
-        updatePill(id);
-        uploaded++;
-      } catch(e) {
-        img.remove();
-        showErr(id, 'Chyba při nahrávání: ' + e.message);
-        break;
-      }
-    }
-
-    document.getElementById(`start-${id}`).disabled = false;
-    if (uploaded === files.length) {
-      document.getElementById(`prog-${id}`).style.display = 'none';
-      await onSetDone(id);
-    }
-    e.target.value = '';
-  });
+document.getElementById('gal-input').addEventListener('change',async e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  e.target.value='';
+  hideErr();
+  hideMedia();
+  // Show the file as preview
+  const cap=document.getElementById('cap-img');
+  cap.src=URL.createObjectURL(file);
+  cap.style.display='block';
+  document.getElementById('cam-video').style.display='none';
+  document.getElementById('media-wrap').style.display='block';
+  await handleBlob(file);
 });
+
+// ── Tips toggle ───────────────────────────────────────────────────────────────
+function toggleTips(){
+  const grid=document.getElementById('tips-grid');
+  const warn=document.getElementById('tips-warn');
+  const chev=document.getElementById('tips-chev');
+  const open=grid.classList.toggle('hidden');
+  // 'open' is now true if we just added 'hidden' (closing), false if removing (opening)
+  if(!open){chev.classList.add('open');warn.style.display='block';}
+  else{chev.classList.remove('open');warn.style.display='none';}
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateCard();
 </script>
 </body>
 </html>
